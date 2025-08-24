@@ -31,6 +31,9 @@ object InvincibilityTimer : Module(
     private val serverTicks by BooleanSetting("Use server ticks", "Uses server ticks instead of real time.")
     private val mageReduction by BooleanSetting("Account for mage cooldown reduction")
     private val colour by ColorSetting("Colour", Color.PINK, false)
+    private val bonzoColor by ColorSetting("Bonzo Color", Color.BLUE, false)
+    private val spiritColor by ColorSetting("Spirit Color", Color.WHITE, false)
+    private val phoenixColor by ColorSetting("Phoenix Color", Color.RED, false)
     private val cataLevel by NumberSetting("Catacombs level", 0.0, 0.0, 50.0, 1.0, "Catacombs level for Bonzo's mask ability")
     private val hud by HudSetting {
         size("Phoenix: 30.2".getWidth() + 6, fontHeight * 3)
@@ -47,13 +50,17 @@ object InvincibilityTimer : Module(
             val spiritReady = stupid("Spirit", spiritTicks, phoenix && offset == 10.0 && phoenixTicks < 0.0)
             val phoenixReady = stupid("Phoenix", phoenixTicks, phoenix && ((offset == 10.0 && spiritTicks < 0.0) || (offset == 0.0 && bonzoTicks < 0.0)))
 
-            drawStringWithShadow(bonzoReady, 6.0, 0.0, colour.rgb)
-            drawStringWithShadow(spiritReady, 6.0, 10.0, colour.rgb)
-            drawStringWithShadow(phoenixReady, 6.0, 20.0, colour.rgb)
+            drawStringWithShadow(bonzoReady, 6.0, 0.0, bonzoColor.rgb)
+            drawStringWithShadow(spiritReady, 6.0, 10.0, spiritColor.rgb)
+            drawStringWithShadow(phoenixReady, 6.0, 20.0, phoenixColor.rgb)
 
-            renderRect(0.0, offset + 2.0, 3.0, 3.0, colour)
-            if (phoenix) renderRect(0.0, 22.0, 3.0, 3.0, colour)
+            when (offset) {
+                0.0 -> renderRect(0.0, 2.0, 3.0, 3.0, bonzoColor)
+                10.0 -> renderRect(0.0, 12.0, 3.0, 3.0, spiritColor)
+            }
+            if (phoenix) renderRect(0.0, 22.0, 3.0, 3.0, phoenixColor)
         }
+
 
         preview {
             drawStringWithShadow("Bonzo: §a✔", 6.0, 0.0, colour.rgb)
@@ -101,7 +108,7 @@ object InvincibilityTimer : Module(
         this.spiritTicks = 0
         this.bonzoTicks = 0
         this.phoenixTicks = 0
-        this.phoenix = false
+        this.phoenix = false 
     }
 
     private fun stupid(name: String, ticks: Int, highlight: Boolean): String {  // stupid thing for colour highlight
