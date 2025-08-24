@@ -34,18 +34,18 @@ object AutoLeap : Module(
 
     private var leapMode = StringSelectorSetting("Leap mode", "Name", arrayListOf("Name", "Class"))
 
-    private var clearLeap = StringSelectorSetting("Clear leap", "None", arrayListOf("None")).withDependency {leapMode.selected == "Name"}
-    private var s1leap = StringSelectorSetting("S1 leap", "None", arrayListOf("None")).withDependency {leapMode.selected == "Name"}
-    private var s2leap = StringSelectorSetting("S2 leap", "None", arrayListOf("None")).withDependency {leapMode.selected == "Name"}
-    private var s3leap = StringSelectorSetting("S3 leap", "None", arrayListOf("None")).withDependency {leapMode.selected == "Name"}
-    private var s4leap = StringSelectorSetting("S4 leap", "None", arrayListOf("None")).withDependency {leapMode.selected == "Name"}
+    private var clearLeap = StringSelectorSetting("Clear leap (Name)", "None", arrayListOf("None")).withDependency {leapMode.selected == "Name"}
+    private var s1leap = StringSelectorSetting("S1 leap (Name)", "None", arrayListOf("None")).withDependency {leapMode.selected == "Name"}
+    private var s2leap = StringSelectorSetting("S2 leap (Name) ", "None", arrayListOf("None")).withDependency {leapMode.selected == "Name"}
+    private var s3leap = StringSelectorSetting("S3 leap (Name)", "None", arrayListOf("None")).withDependency {leapMode.selected == "Name"}
+    private var s4leap = StringSelectorSetting("S4 leap (Name)", "None", arrayListOf("None")).withDependency {leapMode.selected == "Name"}
     var action = ActionSetting("update") {updateTeammates()}.withDependency {leapMode.selected == "Name"}
 
-    private var clearLeapClass = StringSelectorSetting("Clear leap", "None", arrayListOf("Mage", "Bers", "Arch", "Tank", "Heal", "None")).withDependency {leapMode.selected == "Class"}
-    private var s1leapClass = StringSelectorSetting("S1 leap", "None", arrayListOf("Mage", "Bers", "Arch", "Tank", "Heal", "None")).withDependency {leapMode.selected == "Class"}
-    private var s2leapClass = StringSelectorSetting("S2 leap", "None", arrayListOf("Mage", "Bers", "Arch", "Tank", "Heal", "None")).withDependency {leapMode.selected == "Class"}
-    private var s3leapClass = StringSelectorSetting("S3 leap", "None", arrayListOf("Mage", "Bers", "Arch", "Tank", "Heal", "None")).withDependency {leapMode.selected == "Class"}
-    private var s4leapClass = StringSelectorSetting("S4 leap", "None", arrayListOf("Mage", "Bers", "Arch", "Tank", "Heal", "None")).withDependency {leapMode.selected == "Class"}
+    private var clearLeapClass = StringSelectorSetting("Clear leap (Class)", "None", arrayListOf("Mage", "Bers", "Arch", "Tank", "Heal", "None")).withDependency {leapMode.selected == "Class"}
+    private var s1leapClass = StringSelectorSetting("S1 leap (Class)", "None", arrayListOf("Mage", "Bers", "Arch", "Tank", "Heal", "None")).withDependency {leapMode.selected == "Class"}
+    private var s2leapClass = StringSelectorSetting("S2 leap (Class)", "None", arrayListOf("Mage", "Bers", "Arch", "Tank", "Heal", "None")).withDependency {leapMode.selected == "Class"}
+    private var s3leapClass = StringSelectorSetting("S3 leap (Class)", "None", arrayListOf("Mage", "Bers", "Arch", "Tank", "Heal", "None")).withDependency {leapMode.selected == "Class"}
+    private var s4leapClass = StringSelectorSetting("S4 leap (Class)", "None", arrayListOf("Mage", "Bers", "Arch", "Tank", "Heal", "None")).withDependency {leapMode.selected == "Class"}
 
     init {
         this.addSettings(

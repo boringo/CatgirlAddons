@@ -79,14 +79,20 @@ object InvincibilityTimer : Module(
 
             val bonzoReady = stupid("Bonzo", bonzoTicks, phoenix && offset == 0.0 && phoenixTicks < 0.0)
             val spiritReady = stupid("Spirit", spiritTicks, phoenix && offset == 10.0 && phoenixTicks < 0.0)
-            val phoenixReady = stupid("Phoenix", phoenixTicks, phoenix && ((offset == 10.0 && spiritTicks < 0.0) || (offset == 0.0 && bonzoTicks < 0.0)))
+            val phoenixReady = stupid(
+                "Phoenix",
+                phoenixTicks,
+                phoenix && ((offset == 10.0 && spiritTicks < 0.0) || (offset == 0.0 && bonzoTicks < 0.0))
+            )
 
-            mc.fontRendererObj.drawStringWithShadow(bonzoReady, 6.0F, 0.0f, Color.PINK.rgb)
-            mc.fontRendererObj.drawStringWithShadow(spiritReady, 6.0F, 10.0f, Color.PINK.rgb)
-            mc.fontRendererObj.drawStringWithShadow(phoenixReady, 6.0F, 20.0f, Color.PINK.rgb)
-
-            renderRect(0.0, offset + 2.0, 3.0, 3.0, Color.PINK)
-            if (phoenix) renderRect(0.0, 22.0, 3.0, 3.0, Color.PINK)
+            mc.fontRendererObj.drawStringWithShadow(bonzoReady, 6.0F, 0.0f, Color.BLUE.rgb)
+            mc.fontRendererObj.drawStringWithShadow(spiritReady, 6.0F, 10.0f, Color.WHITE.rgb)
+            mc.fontRendererObj.drawStringWithShadow(phoenixReady, 6.0F, 20.0f, Color.RED.rgb)
+            when (offset) {
+                0.0 -> renderRect(0.0, 2.0, 3.0, 3.0, Color.BLUE)
+                10.0 -> renderRect(0.0, 12.0, 3.0, 3.0, Color.WHITE)
+            }
+            if (phoenix) renderRect(0.0, 22.0, 3.0, 3.0, Color.RED)
         }
 
         private fun stupid(name: String, ticks: Int, highlight: Boolean): String {  // stupid thing for colour highlight
