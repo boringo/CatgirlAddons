@@ -5,7 +5,7 @@ import catgirlroutes.module.Category
 import catgirlroutes.module.Module
 import catgirlroutes.module.settings.impl.BooleanSetting
 import catgirlroutes.module.settings.impl.NumberSetting
-import catgirlroutes.module.settings.impl.StringSelectorSetting
+import catgirlroutes.module.settings.impl.SelectorSetting
 import net.minecraft.client.entity.AbstractClientPlayer
 import net.minecraft.client.renderer.GlStateManager
 import net.minecraft.item.ItemStack
@@ -19,52 +19,36 @@ object Animations: Module(
     Category.PLAYER
 ){
 
-    private val customSize = NumberSetting("Size", 0.0, -1.5, 1.5, 0.05)
-    private val scaleSwing = BooleanSetting("Scale swing")
+    private val customSize by NumberSetting("Size", 0.0, -1.5, 1.5, 0.05)
+    private val scaleSwing by BooleanSetting("Scale swing")
 
-    private val customX = NumberSetting("X", 0.0, -1.5, 1.5, 0.05)
-    private val customY = NumberSetting("Y", 0.0, -1.5, 1.5, 0.05)
-    private val customZ = NumberSetting("Z", 0.0, -1.5, 1.5, 0.05)
+    private val customX by NumberSetting("X", 0.0, -1.5, 1.5, 0.05)
+    private val customY by NumberSetting("Y", 0.0, -1.5, 1.5, 0.05)
+    private val customZ by NumberSetting("Z", 0.0, -1.5, 1.5, 0.05)
 
-    private val customYaw = NumberSetting("Yaw", 0.0, -180.0, 180.0, 1.0)
-    private val customPitch = NumberSetting("Pitch", 0.0, -180.0, 180.0, 1.0)
-    private val customRoll = NumberSetting("Roll", 0.0, -180.0, 180.0, 1.0)
+    private val customYaw by NumberSetting("Yaw", 0.0, -180.0, 180.0, 1.0)
+    private val customPitch by NumberSetting("Pitch", 0.0, -180.0, 180.0, 1.0)
+    private val customRoll by NumberSetting("Roll", 0.0, -180.0, 180.0, 1.0)
 
-    val customSpeed = NumberSetting("Speed", 0.0, -2.0, 1.0, 0.05)
+    val customSpeed by NumberSetting("Speed", 0.0, -2.0, 1.0, 0.05)
 
-    val ignoreHaste = BooleanSetting("Ignore haste")
+    val ignoreHaste by BooleanSetting("Ignore haste")
 
-    private val drinkingMode = StringSelectorSetting("Drinking mode", "None", arrayListOf("None", "Rotationless", "Fixed"))
-
-    init {
-        addSettings(
-            customSize,
-            scaleSwing,
-            customX,
-            customY,
-            customZ,
-            customYaw,
-            customPitch,
-            customRoll,
-            customSpeed,
-            ignoreHaste,
-            drinkingMode
-        )
-    }
+    private val drinkingMode by SelectorSetting("Drinking mode", "None", arrayListOf("None", "Rotationless", "Fixed"))
 
     fun itemTransforHook(equipProgress: Float, swingProgress: Float): Boolean {
         if (!this.enabled) return false
-        val newSize = (0.4f * exp(customSize.value))
-        val newX = (0.56f * (1 + customX.value))
-        val newY = (-0.52f * (1 - customY.value))
-        val newZ = (-0.71999997f * (1 + customZ.value))
+        val newSize = (0.4f * exp(customSize))
+        val newX = (0.56f * (1 + customX))
+        val newY = (-0.52f * (1 - customY))
+        val newZ = (-0.71999997f * (1 + customZ))
         GlStateManager.translate(newX, newY, newZ)
         GlStateManager.translate(0.0f, equipProgress * -0.6f, 0.0f)
 
         //Rotation
-        GlStateManager.rotate(customPitch.value.toFloat(), 1.0f, 0.0f, 0.0f)
-        GlStateManager.rotate(customYaw.value.toFloat(), 0.0f, 1f, 0f)
-        GlStateManager.rotate(customRoll.value.toFloat(), 0f, 0f, 1f)
+        GlStateManager.rotate(customPitch.toFloat(), 1.0f, 0.0f, 0.0f)
+        GlStateManager.rotate(customYaw.toFloat(), 0.0f, 1f, 0f)
+        GlStateManager.rotate(customRoll.toFloat(), 0f, 0f, 1f)
 
         GlStateManager.rotate(45f, 0.0f, 1f, 0f)
 
@@ -78,8 +62,8 @@ object Animations: Module(
     }
 
     fun scaledSwing(swingProgress: Float): Boolean {
-        if (!scaleSwing.value || !this.enabled) return false
-        val scale = exp(customSize.value)
+        if (!scaleSwing || !this.enabled) return false
+        val scale = exp(customSize)
         val f = -0.4f * sin(sqrt_float(swingProgress) * Math.PI.toFloat()) * scale
         val f1 = 0.2f * sin(sqrt_float(swingProgress) * Math.PI.toFloat() * 2.0f) * scale
         val f2 = -0.2f * sin(swingProgress * Math.PI.toFloat()) * scale
@@ -109,9 +93,9 @@ object Animations: Module(
             f2 = 0.0f
         }
 
-        val newX = (0.56f * (1 + customX.value)).toFloat()
-        val newY = (-0.52f * (1 - customY.value)).toFloat()
-        val newZ = (-0.71999997f * (1 + customZ.value)).toFloat()
+        val newX = (0.56f * (1 + customX)).toFloat()
+        val newY = (-0.52f * (1 - customY)).toFloat()
+        val newZ = (-0.71999997f * (1 + customZ)).toFloat()
         GlStateManager.translate(-0.56f, 0.52f, 0.71999997f)
         GlStateManager.translate(newX, newY, newZ)
 

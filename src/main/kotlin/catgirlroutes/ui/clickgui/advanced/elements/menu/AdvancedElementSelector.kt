@@ -2,7 +2,7 @@ package catgirlroutes.ui.clickgui.advanced.elements.menu
 
 import catgirlroutes.module.Module
 import catgirlroutes.module.settings.impl.Options
-import catgirlroutes.module.settings.impl.SelectorSetting
+import catgirlroutes.module.settings.impl.tSelectorSetting
 import catgirlroutes.ui.clickgui.advanced.AdvancedMenu
 import catgirlroutes.ui.clickgui.advanced.elements.AdvancedElement
 import catgirlroutes.ui.clickgui.advanced.elements.AdvancedElementType
@@ -18,8 +18,8 @@ import java.util.*
  * @author Aton
  */
 class AdvancedElementSelector<T>(
-    parent: AdvancedMenu, module: Module, setting: SelectorSetting<T>,
-) : AdvancedElement<SelectorSetting<T>>(parent, module, setting, AdvancedElementType.SELECTOR)
+    parent: AdvancedMenu, module: Module, setting: tSelectorSetting<T>,
+) : AdvancedElement<tSelectorSetting<T>>(parent, module, setting, AdvancedElementType.SELECTOR)
         where T : Options, T: Enum<T> {
 
 

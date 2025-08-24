@@ -4,14 +4,13 @@ import catgirlroutes.config.InventoryButtonsConfig
 import catgirlroutes.config.InventoryButtonsConfig.allButtons
 import catgirlroutes.ui.clickgui.util.ColorUtil
 import catgirlroutes.ui.clickgui.util.FontUtil
-import catgirlroutes.ui.misc.elements.impl.MiscElementText
+import catgirlroutes.ui.misc.elements.impl.textField
 import catgirlroutes.utils.render.HUDRenderUtils
 import net.minecraft.client.gui.GuiScreen
 import net.minecraft.client.renderer.GlStateManager
 import net.minecraft.util.ResourceLocation
 import org.lwjgl.input.Keyboard
 import org.lwjgl.opengl.GL11
-import java.awt.Color
 
 class InventoryButtonEditor : GuiScreen() { // todo: recode prob
 
@@ -28,8 +27,8 @@ class InventoryButtonEditor : GuiScreen() { // todo: recode prob
     private var editorX = 0
     private var editorY = 0
 
-    private val commandTextField: MiscElementText = MiscElementText(width = editorWidth - 14, height = 16.0)
-    private val iconTextField: MiscElementText = MiscElementText(width = editorWidth - 14, height =  16.0)
+    private val commandTextField = textField { size(editorWidth - 14.0, 16.0) }
+    private val iconTextField = textField { size(editorWidth - 14.0, 16.0) }
 
     override fun drawScreen(mouseX: Int, mouseY: Int, partialTicks: Float) {
         super.drawScreen(mouseX, mouseY, partialTicks)
@@ -69,7 +68,7 @@ class InventoryButtonEditor : GuiScreen() { // todo: recode prob
                 editorX.toDouble(), editorY.toDouble(),
                 editorWidth, editorHeight,
                 5.0, 1.0,
-                Color(ColorUtil.bgColor), Color(ColorUtil.outlineColor)
+                ColorUtil.bgColor, ColorUtil.outlineColor
             )
 
             FontUtil.drawString("Command", editorX + 7, editorY + 7, 0xffa0a0a0.toInt())
@@ -77,14 +76,14 @@ class InventoryButtonEditor : GuiScreen() { // todo: recode prob
                 prependText = if (text.startsWith("/")) "" else "§7/§r"
                 this.x = editorX + 7.0
                 this.y = editorY + 19.0
-                render(mouseX, mouseY)
+                draw(mouseX, mouseY)
             }
 
             FontUtil.drawString("Icon", editorX + 7, editorY + 43, 0xffa0a0a0.toInt())
             iconTextField.apply {
                 this.x = editorX + 7.0
                 this.y = editorY + 55.0
-                render(mouseX, mouseY)
+                draw(mouseX, mouseY)
             }
             GlStateManager.popMatrix()
         }
@@ -97,8 +96,8 @@ class InventoryButtonEditor : GuiScreen() { // todo: recode prob
         if (mouseButton != 0) return
 
         editingButton?.takeIf { isHoveringEditor(mouseX, mouseY) }?.let {
-            if (commandTextField.mouseClicked(mouseX, mouseY, mouseButton)) it.command = commandTextField.text
-            if (iconTextField.mouseClicked(mouseX, mouseY, mouseButton)) it.icon = iconTextField.text
+            if (commandTextField.onMouseClick(mouseX, mouseY, mouseButton)) it.command = commandTextField.text
+            if (iconTextField.onMouseClick(mouseX, mouseY, mouseButton)) it.icon = iconTextField.text
         }
 
         if (isHoveringEditor(mouseX, mouseY)) return
@@ -110,11 +109,11 @@ class InventoryButtonEditor : GuiScreen() { // todo: recode prob
                 } else {
                     editingButton = button
 
-                    commandTextField.focus = true
+                    commandTextField.isFocused = true
                     commandTextField.text = editingButton!!.command
 
                     iconTextField.text = editingButton!!.icon
-                    iconTextField.focus = false
+                    iconTextField.isFocused = false
 
                     InventoryButtonsConfig.save()
                 }
@@ -125,8 +124,8 @@ class InventoryButtonEditor : GuiScreen() { // todo: recode prob
 
     override fun keyTyped(typedChar: Char, keyCode: Int) {
         editingButton?.let {
-            if (commandTextField.keyTyped(typedChar, keyCode)) it.command = commandTextField.text
-            if (iconTextField.keyTyped(typedChar, keyCode)) it.icon = iconTextField.text
+            if (commandTextField.onKey(typedChar, keyCode)) it.command = commandTextField.text
+            if (iconTextField.onKey(typedChar, keyCode)) it.icon = iconTextField.text
             if (keyCode == Keyboard.KEY_ESCAPE) {
                 this.editingButton = null
                 return

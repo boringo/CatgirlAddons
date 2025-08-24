@@ -10,8 +10,8 @@ import net.minecraftforge.fml.common.eventhandler.SubscribeEvent
 
 object VerticalJerry : Module(
     "Vertical Jerry",
-    category = Category.PLAYER,
-    description = "Cancels horizontal velocity from Jerry-chine Gun"
+    Category.PLAYER,
+    "Cancels horizontal velocity from Jerry-chine Gun."
 ){
     @SubscribeEvent
     fun onPacket(event: PacketReceiveEvent) {

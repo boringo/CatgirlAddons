@@ -15,6 +15,7 @@
     "MixinFontRenderer",
     "MixinGuiContainer",
     "MixinGuiIngame",
+    "MixinGuiScoreboard",
     "MixinItemRenderer",
     "MixinMinecraft",
     "MixinNetworkManager",

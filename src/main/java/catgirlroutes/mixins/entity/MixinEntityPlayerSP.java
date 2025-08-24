@@ -97,6 +97,6 @@ public abstract class MixinEntityPlayerSP extends EntityPlayer {
 
     @Redirect(method = {"pushOutOfBlocks"}, at = @At(value = "FIELD", target = "Lnet/minecraft/client/entity/EntityPlayerSP;noClip:Z"))
     public boolean shouldPrevent(EntityPlayerSP instance) {
-        return NoDebuff.INSTANCE.getNoPush().getEnabled();
+        return NoDebuff.INSTANCE.getNoPush();
     }
 }

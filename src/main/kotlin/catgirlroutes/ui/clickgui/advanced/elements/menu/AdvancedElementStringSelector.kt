@@ -1,7 +1,7 @@
 package catgirlroutes.ui.clickgui.advanced.elements.menu
 
 import catgirlroutes.module.Module
-import catgirlroutes.module.settings.impl.StringSelectorSetting
+import catgirlroutes.module.settings.impl.SelectorSetting
 import catgirlroutes.ui.clickgui.advanced.AdvancedMenu
 import catgirlroutes.ui.clickgui.advanced.elements.AdvancedElement
 import catgirlroutes.ui.clickgui.advanced.elements.AdvancedElementType
@@ -18,8 +18,8 @@ import java.util.*
  */
 @Deprecated("Use Enum version instead.")
 class AdvancedElementStringSelector(
-    parent: AdvancedMenu, module: Module, setting: StringSelectorSetting,
-) : AdvancedElement<StringSelectorSetting>(parent, module, setting, AdvancedElementType.SELECTOR) {
+    parent: AdvancedMenu, module: Module, setting: SelectorSetting,
+) : AdvancedElement<SelectorSetting>(parent, module, setting, AdvancedElementType.SELECTOR) {
 
 
     /**

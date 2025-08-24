@@ -86,11 +86,11 @@ object CgaUsers { // todo: add capes with gif
             val capeFile = File("${dir.path}/$capeId.png")
             if (!capeFile.exists()) {
                 val imageUrl = "https://i.imgur.com/$capeId.png"
-                if (!downloadImageFromServer(imageUrl, capeFile)) {
+//                if (!downloadImageFromServer(imageUrl, capeFile)) {
                     println("Failed to download cape: $imageUrl")
 //                    if (mc.theWorld != null) ChatUtils.modMessage("Failed to download cape: $imageUrl")
                     return@run ResourceLocation(RESOURCE_DOMAIN, "default_cape.png")
-                }
+//                }
             }
 
             // I don't even know what this shit is but ty stackoverflow

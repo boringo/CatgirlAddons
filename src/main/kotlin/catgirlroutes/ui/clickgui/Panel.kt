@@ -91,8 +91,8 @@ class Panel(
 
         // Render decor
         if (ClickGui.design.isSelected("New")) {
-            Gui.drawRect(0, 0,  2, height, ColorUtil.outlineColor)
-            Gui.drawRect(0, startY,  2, startY+5, ColorUtil.outlineColor)
+            Gui.drawRect(0, 0,  2, height, ColorUtil.outlineColor.rgb)
+            Gui.drawRect(0, startY,  2, startY+5, ColorUtil.outlineColor.rgb)
             FontUtil.drawStringWithShadow(title, 4.0, height / 2.0 - FontUtil.fontHeight / 2.0)
         } else if (ClickGui.design.isSelected("JellyLike")) {
             Gui.drawRect(4, 2, 5, height - 2, ColorUtil.jellyPanelColor)

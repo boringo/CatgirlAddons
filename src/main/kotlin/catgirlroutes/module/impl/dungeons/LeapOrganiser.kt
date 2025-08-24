@@ -1,36 +1,56 @@
 package catgirlroutes.module.impl.dungeons
 
-import catgirlroutes.CatgirlRoutes.Companion.display
 import catgirlroutes.module.Category
 import catgirlroutes.module.Module
-import catgirlroutes.module.settings.Visibility
-import catgirlroutes.module.settings.impl.StringSelectorSetting
-import catgirlroutes.module.settings.impl.StringSetting
-import catgirlroutes.ui.misc.LeapOrganiser
+import catgirlroutes.module.settings.impl.ActionSetting
+import catgirlroutes.module.settings.impl.OrderSetting
+import catgirlroutes.module.settings.impl.SelectorSetting
+import catgirlroutes.utils.ChatUtils.commandAny
+import catgirlroutes.utils.Party
 
 object LeapOrganiser : Module(
-    "Leap organiser",
+    "Leap Organiser",
     Category.DUNGEON,
-    tag = TagType.WHIP
 ) {
-    val leapOrder: StringSetting = StringSetting("Leap order", "_ _ _ _", visibility = Visibility.HIDDEN)
-    val player1Note: StringSetting = StringSetting("Player1 note", "ee2", description = "Player 1 note")
-    val player2Note: StringSetting = StringSetting("Player2 note", "core", description = "Player 2 note")
-    val player3Note: StringSetting = StringSetting("Player3 note", "ee3", description = "Player 3 note")
-    val player4Note: StringSetting = StringSetting("Player4 note", "i4", description = "Player 4 note")
-    val leapMenu: StringSelectorSetting = StringSelectorSetting("Leap menu", "SA", arrayListOf("SA", "Odin"))
+    val leapOrder by OrderSetting(
+        "Leap order",
+        mapOf("1" to "None", "2" to "None", "3" to "None", "4" to "None"),
+        onGuiClosed = {
+            if (!LeapOrganiser.enabled || currentOrder == value) return@OrderSetting
+            currentOrder = value
+            val order = values.joinToString(" ") { it.ifBlank { "_" } }
+            when (leapMenu.selected) {
+                "SA" -> commandAny("/sa leap $order")
+                "Odin" -> commandAny("/od leaporder $order")
+            }
+        },
+        updateAction = {
+            val result = value.toMutableMap()
+            val used = mutableSetOf<String>()
+            val members = Party.members.take(4)
 
-    init {
-        addSettings(this.leapOrder, this.leapMenu, this.player1Note, this.player2Note, this.player3Note, this.player4Note)
-    }
+            value.forEach { (key, value) ->
+                if (value in members && value !in used) {
+                    result[key] = value
+                    used.add(value)
+                } else {
+                    result[key] = ""
+                }
+            }
 
-    override fun onKeyBind() {
-        this.toggle()
-    }
+            val remaining = members.filterNot { it in used }.iterator()
 
-    override fun onEnable() {
-        display = LeapOrganiser()
-        toggle()
-        super.onEnable()
-    }
+            result.forEach { (key, value) ->
+                if (value.isEmpty() && remaining.hasNext()) {
+                    result[key] = remaining.next()
+                }
+            }
+
+            value = result
+        }
+    )
+
+    private var currentOrder: Map<String, String> = leapOrder
+
+    private val leapMenu by SelectorSetting("Leap menu", "SA", arrayListOf("SA", "Odin"))
 }

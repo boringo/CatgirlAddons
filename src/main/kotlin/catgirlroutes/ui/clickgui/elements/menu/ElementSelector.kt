@@ -1,7 +1,7 @@
 package catgirlroutes.ui.clickgui.elements.menu
 
 import catgirlroutes.module.settings.impl.Options
-import catgirlroutes.module.settings.impl.SelectorSetting
+import catgirlroutes.module.settings.impl.tSelectorSetting
 import catgirlroutes.ui.clickgui.elements.Element
 import catgirlroutes.ui.clickgui.elements.ElementType
 import catgirlroutes.ui.clickgui.elements.ModuleButton
@@ -15,13 +15,13 @@ import java.util.*
  *
  * @author Aton
  */
-class ElementSelector<T>(parent: ModuleButton, setting: SelectorSetting<T>) :
-    Element<SelectorSetting<T>>(parent, setting, ElementType.SELECTOR)
+class ElementSelector<T>(parent: ModuleButton, setting: tSelectorSetting<T>) :
+    Element<tSelectorSetting<T>>(parent, setting, ElementType.SELECTOR)
         where T : Options, T : Enum<T> {
 
 
     override fun renderElement(mouseX: Int, mouseY: Int, partialTicks: Float): Int {
-        val displayValue = (setting as SelectorSetting<*>).selected
+        val displayValue = (setting as tSelectorSetting<*>).selected
 
         // Render the text.
         if (FontUtil.getStringWidth(displayValue + "00" + displayName) <= width) {

@@ -21,7 +21,7 @@ class StringSetting(
     override var value: String = default
         set(newStr) {
             val tempStr = processInput(newStr)
-            field = if (tempStr.length > length) {
+            field = if (length > 0 && tempStr.length > length) {
                 tempStr.substring(0, length - 1)
             }else
                 tempStr

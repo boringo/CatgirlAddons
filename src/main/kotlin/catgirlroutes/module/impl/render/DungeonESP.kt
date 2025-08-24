@@ -6,7 +6,7 @@ import catgirlroutes.module.Category
 import catgirlroutes.module.Module
 import catgirlroutes.module.settings.Setting.Companion.withDependency
 import catgirlroutes.module.settings.impl.*
-import catgirlroutes.utils.Utils.isOtherPlayer
+import catgirlroutes.utils.isOtherPlayer
 import catgirlroutes.utils.clock.Executor
 import catgirlroutes.utils.clock.Executor.Companion.register
 import catgirlroutes.utils.dungeon.DungeonUtils.inDungeons
@@ -29,20 +29,20 @@ object DungeonESP: Module(
     Category.RENDER
 ) {
 
-    private val espStyle = StringSelectorSetting("Esp style","3D", arrayListOf("3D", "2D", "Outline"), "Esp render style to be used.")
-    private val espFill = BooleanSetting("Esp fill", false).withDependency { espStyle.selected == "3D"}
-    private val boxOffset = NumberSetting("Box size offset", 0.0, -1.0, 1.0, 0.05, "Change box size offset").withDependency { this.espStyle.selected == "3D" }
-    private val lineWidth = NumberSetting("Line width", 4.0, 0.0, 8.0, 1.0)
+    private val espStyle by SelectorSetting("Esp style","3D", arrayListOf("3D", "2D", "Outline"), "Esp render style to be used.")
+    private val espFill by BooleanSetting("Esp fill", false).withDependency { espStyle.selected == "3D"}
+    private val boxOffset by NumberSetting("Box size offset", 0.0, -1.0, 1.0, 0.05, "Change box size offset").withDependency { this.espStyle.selected == "3D" }
+    private val lineWidth by NumberSetting("Line width", 4.0, 0.0, 8.0, 1.0)
 
-    private val colorDropdown = DropdownSetting("Colors")
-    private val colorStar = ColorSetting("Star Color", Color(255, 0, 0), true, "ESP color for star mobs.").withDependency(colorDropdown)
-    private val colorSA = ColorSetting("Shadow Color", Color(255, 0, 0), true, "ESP color for shadow assassins.").withDependency(colorDropdown)
-    private val colorBat = ColorSetting("Bat Color", Color(255, 0, 0), true, "ESP color for bats.").withDependency(colorDropdown)
+    private val colorDropdown by DropdownSetting("Colors")
+    private val colorStar by ColorSetting("Star Color", Color(255, 0, 0), true, "ESP color for star mobs.").withDependency(colorDropdown)
+    private val colorSA by ColorSetting("Shadow Color", Color(255, 0, 0), true, "ESP color for shadow assassins.").withDependency(colorDropdown)
+    private val colorBat by ColorSetting("Bat Color", Color(255, 0, 0), true, "ESP color for bats.").withDependency(colorDropdown)
 
-    private val fillDropdown = DropdownSetting("Fill").withDependency { espFill.enabled }
-    private val colorStarFill = ColorSetting("Star Fill", Color(255, 0, 0), true, "ESP color for star mobs.").withDependency(fillDropdown) { espFill.enabled }
-    private val colorSAFill = ColorSetting("Shadow Fill", Color(255, 0, 0), true, "ESP color for shadow assassins.").withDependency(fillDropdown) { espFill.enabled }
-    private val colorBatFill = ColorSetting("Bat Fill", Color(255, 0, 0), true, "ESP color for bats.").withDependency(fillDropdown) { espFill.enabled }
+    private val fillDropdown by DropdownSetting("Fill").withDependency { espFill }
+    private val colorStarFill by ColorSetting("Star Fill", Color(255, 0, 0), true, "ESP color for star mobs.").withDependency(fillDropdown) { espFill }
+    private val colorSAFill by ColorSetting("Shadow Fill", Color(255, 0, 0), true, "ESP color for shadow assassins.").withDependency(fillDropdown) { espFill }
+    private val colorBatFill by ColorSetting("Bat Fill", Color(255, 0, 0), true, "ESP color for bats.").withDependency(fillDropdown) { espFill }
 
     private var currentEntities = mutableSetOf<ESPEntity>()
 
@@ -51,23 +51,6 @@ object DungeonESP: Module(
             if (!inDungeons || !this.enabled) return@Executor
             getEntities()
         }.register()
-
-        addSettings(
-            espStyle,
-            espFill,
-            boxOffset,
-            lineWidth,
-
-            colorDropdown,
-            colorStar,
-            colorSA,
-            colorBat,
-
-            fillDropdown,
-            colorStarFill,
-            colorSAFill,
-            colorBatFill,
-        )
     }
 
     data class ESPEntity (
@@ -83,7 +66,7 @@ object DungeonESP: Module(
 
     @SubscribeEvent
     fun onRenderWorld(event: RenderWorldLastEvent) {
-        if (!inDungeons || !this.enabled) return
+        if (!inDungeons) return
         val entitiesToRemove = mutableListOf<ESPEntity>()
         currentEntities.forEach{espEntity ->
             if (espEntity.entity.isDead) {
@@ -92,8 +75,8 @@ object DungeonESP: Module(
             }
             if (espStyle.selected == "Outline") return@forEach
             when (espStyle.selected) {
-                "2D" -> draw2DBoxByEntity(espEntity.entity, espEntity.color, event.partialTicks, lineWidth.value.toFloat(), true)
-                "3D" -> drawEntityBox(espEntity.entity, espEntity.color, espEntity.fillColor, true, espFill.value, event.partialTicks, lineWidth.value.toFloat(), this.boxOffset.value.toFloat())
+                "2D" -> draw2DBoxByEntity(espEntity.entity, espEntity.color, event.partialTicks, lineWidth.toFloat(), true)
+                "3D" -> drawEntityBox(espEntity.entity, espEntity.color, espEntity.fillColor, true, espFill, event.partialTicks, lineWidth.toFloat(), this.boxOffset.toFloat())
             }
         }
         currentEntities.removeAll(entitiesToRemove.toSet())
@@ -101,14 +84,14 @@ object DungeonESP: Module(
 
     @SubscribeEvent
     fun onRenderModel(event: RenderEntityModelEvent) {
-        if (!inDungeons || !this.enabled || espStyle.selected != "Outline") return
+        if (!inDungeons || espStyle.selected != "Outline") return
         currentEntities.forEach{espEntity ->
             if (espEntity.entity.isDead) {
                 currentEntities.remove(espEntity)
                 return@forEach
             }
             if (event.entity != espEntity.entity) return@forEach
-            outlineESP(event, lineWidth.value.toFloat(), espEntity.color, true)
+            outlineESP(event, lineWidth.toFloat(), espEntity.color, true)
         }
     }
 
@@ -127,21 +110,21 @@ object DungeonESP: Module(
         val entityName = entity.customNameTag?.let { StringUtils.stripControlCodes(it) } ?: return
         if (entity.name.contains("§6✯ ") && entity.name.endsWith("§c❤")) {
             val correspondingEntity = getMobEntity(entity) ?: return
-            currentEntities.add(ESPEntity(correspondingEntity, colorStar.value, colorStarFill.value))
+            currentEntities.add(ESPEntity(correspondingEntity, colorStar, colorStarFill))
         }
     }
 
     private fun handlePlayer(entity: Entity) {
         if (entity.name.contains("Shadow Assassin")) {
-            currentEntities.add(ESPEntity(entity, colorSA.value, colorSAFill.value))
+            currentEntities.add(ESPEntity(entity, colorSA, colorSAFill))
         } else if (entity.name == "Diamond Guy" || entity.name == "Lost Adventurer") {
-            currentEntities.add(ESPEntity(entity, colorStar.value, colorStarFill.value))
+            currentEntities.add(ESPEntity(entity, colorStar, colorStarFill))
         }
     }
 
     private fun handleBat(entity: EntityBat) {
         if (!listOf(100F, 200F, 400F, 800F).contains(entity.maxHealth)) return
-        currentEntities.add(ESPEntity(entity, colorBat.value, colorBatFill.value))
+        currentEntities.add(ESPEntity(entity, colorBat, colorBatFill))
     }
 
     private fun getMobEntity(entity: Entity): Entity? {

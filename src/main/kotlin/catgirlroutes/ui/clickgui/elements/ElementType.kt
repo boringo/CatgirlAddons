@@ -6,5 +6,5 @@ package catgirlroutes.ui.clickgui.elements
  * @author Aton
  */
 enum class ElementType {
-    CHECK_BOX, KEY_BIND, SELECTOR, COLOR, SLIDER, TEXT_FIELD, ACTION, DROPDOWN, COLOR2
+    CHECK_BOX, KEY_BIND, SELECTOR, COLOR, SLIDER, TEXT_FIELD, ACTION, DROPDOWN, COLOR2, HUD, DUMMY
 }

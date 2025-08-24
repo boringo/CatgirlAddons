@@ -1,112 +1,87 @@
 package catgirlroutes.ui.hud
 
-import catgirlroutes.CatgirlRoutes.Companion.mc
 import catgirlroutes.module.Module
+import catgirlroutes.module.settings.AlwaysActive
 import catgirlroutes.module.settings.Visibility
+import catgirlroutes.module.settings.impl.BooleanSetting
 import catgirlroutes.module.settings.impl.NumberSetting
-import catgirlroutes.module.impl.misc.Test.TestHud
-import catgirlroutes.ui.clickgui.util.FontUtil
-import catgirlroutes.utils.render.HUDRenderUtils
-import net.minecraft.client.gui.ScaledResolution
+import catgirlroutes.ui.clickgui.util.FontUtil.drawStringWithShadow
+import catgirlroutes.ui.clickgui.util.FontUtil.fontHeight
+import catgirlroutes.ui.clickgui.util.FontUtil.getWidth
+import catgirlroutes.ui.clickgui.util.MouseUtils.mx
+import catgirlroutes.ui.clickgui.util.MouseUtils.my
+import catgirlroutes.utils.render.HUDRenderUtils.drawHoveringText
+import catgirlroutes.utils.render.HUDRenderUtils.drawRoundedOutline
+import catgirlroutes.utils.render.HUDRenderUtils.drawRoundedRect
+import catgirlroutes.utils.render.HUDRenderUtils.sr
 import net.minecraft.client.renderer.GlStateManager
 import net.minecraftforge.client.event.RenderGameOverlayEvent
 import net.minecraftforge.fml.common.eventhandler.SubscribeEvent
 import java.awt.Color
 import kotlin.math.floor
+import kotlin.reflect.full.hasAnnotation
+
 
 /**
+ * Sets up a hud Element.
+ * This constructor takes care of creating the [NumberSetting]s required to save the position and scale of the hud
+ * element to the config.
  * Provides functionality for game overlay elements.
  * @author Aton
  */
-abstract class HudElement{
+abstract class HudElement(
+    val name: String,
+    private val xDefault: Double,
+    private val yDefault: Double,
+    var width: Double,
+    var height: Double,
+    private val defaultScale: Double,
+) {
 
-    private var parentModule: Module
-    val enabled: Boolean
-        get() = parentModule.enabled
+    lateinit var parentModule: Module
 
-    private val xSett: NumberSetting
-    private val ySett: NumberSetting
-    val scale: NumberSetting
+    val toggled: Boolean
+        get() = parentModule.enabled && enabled || parentModule::class.hasAnnotation<AlwaysActive>()
 
-    var width: Int
-    var height: Int
+    val enabled get() = enabledSett.enabled
 
-    var partialTicks: Float = 1.0f
+    open val visible: Boolean
+        get() = true
 
-    private var preview: () -> Unit
+    private lateinit var xSett: NumberSetting
+    private lateinit var ySett: NumberSetting
+    lateinit var scaleSett: NumberSetting
+    lateinit var enabledSett: BooleanSetting
 
     private val zoomIncrement = 0.05
 
     /**
      * Use these instead of a direct reference to the NumberSetting
      */
-    var x: Int
-     get() = xSett.value.toInt()
+    var x: Double
+     get() = xSett.value
      set(value) {
-         xSett.value = value.toDouble()
+         xSett.value = value
      }
 
-    var y: Int
-        get() = ySett.value.toInt()
+    var y: Double
+        get() = ySett.value
         set(value) {
-            ySett.value = value.toDouble()
+            ySett.value = value
         }
 
-    /**
-     * Sets up a hud Element.
-     * This constructor takes care of creating the [NumberSetting]s required to save the position and scale of the hud
-     * element to the config.
-     */
-    constructor(
-        module: Module,
-        xDefault: Int = 0,
-        yDefault: Int = 0,
-        width: Int = 10,
-        height: Int = 10,
-        defaultScale: Double = 1.0,
-        preview: () -> Unit = { FontUtil.drawStringWithShadow(module.name, 0.0, 0.0) }
-    ) {
-        val id = module.settings.count { it.name.startsWith("xHud") }
-        val xHud = NumberSetting("xHud_$id", default = xDefault.toDouble(), visibility = Visibility.HIDDEN)
-        val yHud = NumberSetting("yHud_$id", default = yDefault.toDouble(), visibility = Visibility.HIDDEN)
-        val scaleHud = NumberSetting("scaleHud_$id", defaultScale, 0.1, 4.0, 0.01, visibility = Visibility.HIDDEN)
+    val scale: Double
+        get() = scaleSett.value
 
-        module.addSettings(xHud, yHud, scaleHud)
-
+    fun init(module: Module) {
         this.parentModule = module
+        val id = parentModule.settings.count { it.name.startsWith("xHud") }
+        this.xSett = NumberSetting("xHud_$id", xDefault, visibility = Visibility.HIDDEN)
+        this.ySett = NumberSetting("yHud_$id", yDefault, visibility = Visibility.HIDDEN)
+        this.scaleSett = NumberSetting("scaleHud_$id", defaultScale, 0.1, 4.0, 0.01, visibility = Visibility.HIDDEN)
+        this.enabledSett = BooleanSetting("enabledHud_$id", name.isEmpty(), visibility = Visibility.HIDDEN)
 
-        this.xSett = xHud
-        this.ySett = yHud
-        this.scale = scaleHud
-
-        this.width = width
-        this.height = height
-
-        this.preview = preview
-    }
-
-    /**
-     * It is advised to use the other constructor unless this one is required.
-     */
-    constructor(
-        module: Module,
-        xHud: NumberSetting,
-        yHud: NumberSetting,
-        width: Int = 10,
-        height: Int = 10,
-        scale: NumberSetting,
-        preview: () -> Unit = { FontUtil.drawStringWithShadow(module.name, 0.0, 0.0) }
-    ) {
-        this.parentModule = module
-
-        this.xSett = xHud
-        this.ySett = yHud
-        this.scale = scale
-
-        this.width = width
-        this.height = height
-
-        this.preview = preview
+        this.parentModule.addSettings(this.xSett, this.ySett, this.scaleSett, this.enabledSett)
     }
 
     /**
@@ -117,7 +92,7 @@ abstract class HudElement{
     open fun resetElement() {
         xSett.value = xSett.default
         ySett.value = ySett.default
-        scale.value = scale.default
+        scaleSett.value = scaleSett.default
     }
 
     /**
@@ -125,7 +100,7 @@ abstract class HudElement{
      * Can be overridden in implementation.
      */
     open fun scroll(amount: Int) {
-        this.scale.value += amount * zoomIncrement
+        this.scaleSett.value += amount * zoomIncrement
     }
 
     /**
@@ -133,11 +108,10 @@ abstract class HudElement{
      */
     @SubscribeEvent
     fun onOverlay(event: RenderGameOverlayEvent.Post) {
-        if (event.type != RenderGameOverlayEvent.ElementType.HOTBAR) return
-        this.partialTicks = event.partialTicks
+        if (event.type != RenderGameOverlayEvent.ElementType.HOTBAR || !this.toggled || !this.visible) return
         GlStateManager.pushMatrix()
         GlStateManager.translate(x.toFloat(), y.toFloat(), 0f)
-        GlStateManager.scale(scale.value, scale.value, 1.0)
+        GlStateManager.scale(scaleSett.value, scaleSett.value, 1.0)
 
         renderHud()
 
@@ -148,60 +122,164 @@ abstract class HudElement{
      * Override this method in your implementations.
      *
      * This method is responsible for rendering the HUD element.
-     * Within this method coordinates are already transformed regarding to the HUD position [x],[x] and [scale].
+     * Within this method coordinates are already transformed regarding the HUD position [x],[x] and [scaleSett].
      */
-    abstract fun renderHud()
+    open fun renderHud() = Unit
+
+    open fun preview() {
+//        drawStringWithShadow("${parentModule.name} $name", 0.0, 0.0)
+    }
 
     /**
      * Use this method to dynamically update [HudElement] dimensions
      * (I couldn't come up with anything else without putting a lot of effort)
      * @see [TestHud]
      */
-    open fun setDimensions() = Unit
+    open fun updateSize() = Unit
 
+    fun getBounds(x: Double = this.x, y: Double = this.y, scale: Double = this.scale, padding: Double = 2.5 * scale): ElementBounds {
+        val renderWidth = width * scale
+        val renderHeight = height * scale
+        return ElementBounds(
+            x - padding,
+            x + renderWidth + padding,
+            y - padding,
+            y + renderHeight + padding,
+            x + renderWidth / 2,
+            y + renderHeight / 2
+        )
+    }
+
+    fun isHovered(mouseX: Int = mx, mouseY: Int = my): Boolean {
+        if (!this.toggled) return false
+        return mouseX > (x - 2.5 * scale) && mouseX < (x + width * scale + 2.5 * scale)
+                && mouseY > (y - 2.5 * scale) && mouseY < (y + height * scale + 2.5 * scale)
+    }
     /**
      * Used for moving the hud element.
      * Draws a rectangle in place of the actual element
      */
     fun renderPreview(isDragging: Boolean) {
-        if (!this.enabled) return
+        if (!this.toggled) return
         GlStateManager.pushMatrix()
-        GlStateManager.translate(x.toFloat(), y.toFloat(), 0f)
-        val scaleValue = scale.value
-        GlStateManager.scale(scaleValue, scaleValue, 1.0)
+        GlStateManager.translate(x, y, 0.0)
+        GlStateManager.scale(scale, scale, 1.0)
 
-        // render coords and scale if dragging
+        GlStateManager.pushMatrix()
+        GlStateManager.scale(1.0 / scale, 1.0 / scale, 1.0)
+        GlStateManager.translate(-x, -y, 0.0)
+
         if (isDragging) {
-            val text = "x: ${x * 2} y: ${y * 2} ${if (scaleValue != 1.0) "${floor(scaleValue * 100) / 100}" else ""}"
+            val text = "x: ${x.toInt() * 2} y: ${y.toInt() * 2} ${if (scale != 1.0) "${floor(scale * 100) / 100} " else ""}"
+            val bounds = this.getBounds()
+            val textWidth = text.getWidth()
 
-            val sr = ScaledResolution(mc)
+            val xPos = -2.0 + if (sr.scaledWidth < bounds.right + textWidth + 5.0) bounds.left - textWidth + 1.0 else bounds.right + 2.0
+            val yPos = -2.0 + if (bounds.top - 12 < 5) bounds.bottom + 1.0 else bounds.top - 10.0
 
-            val w = mc.fontRendererObj.getStringWidth(text) + 4
+            drawRoundedRect(xPos, yPos, textWidth, 12.0, 3.0, Color(21, 21, 21, 200))
+            drawStringWithShadow(text, xPos, yPos)
+        } else if (isHovered()) {
+            val text = listOfNotNull(
+                parentModule.name,
+                name.takeIf { it.isNotEmpty() }?.let { if (!it.contains("hud", true)) "$it hud" else it },
+                "   x: ${x.toInt() * 2}, y: ${y.toInt() * 2}, scale: ${floor(scale * 100) / 100}",
+                "",
+                "§7Right click to reset position",
+                "§7Middle click to open module",
+                "§7Scroll wheel to resize",
+                "§7Shift to disable snapping"
+            )
+            drawHoveringText(text, mx, my)
+        }
 
-            val x2 = 4.0 + if (sr.scaledWidth * scaleValue < (x + (width + w) * scaleValue) * scaleValue) -w else width
-            val y2 = -1.0 + if (y - 12 * scaleValue < 5 * scaleValue) height else -12
+        GlStateManager.popMatrix()
 
-            val adjX = x2 * scaleValue // still schizo but Idgaf
-            GlStateManager.pushMatrix()
-            GlStateManager.scale(1.0 / scaleValue, 1.0 / scaleValue, 1.0)
-            HUDRenderUtils.renderRect(adjX - 2, y2 - 2, w.toDouble(), 12.0, Color(21, 21, 21, 200))
-            FontUtil.drawStringWithShadow(text, adjX, y2, Color.WHITE.rgb)
-            GlStateManager.popMatrix()
-        } else {
-            HUDRenderUtils.renderRect(-2.0, -2.0, width.toDouble() + 3, height.toDouble(), Color(21, 21, 21, 200)) // bg
+        if (!isDragging) {
+            drawRoundedRect(-2.0, -2.0, width + 4, height + 4, 3.0, Color(21, 21, 21, 200)) // bg
             this.preview()
         }
 
-        // border
-        HUDRenderUtils.renderRectBorder(
-            -2.0,
-            -2.0,
-            width.toDouble() + 3,
-            height.toDouble(),
-            0.5,
-            Color(208, 208, 208)
-        )
+        drawRoundedOutline(-2.0, -2.0, width + 4, height + 4, 3.0, 0.5, Color(208, 208, 208))
 
         GlStateManager.popMatrix()
     }
 }
+
+class HudElementDSL(val name: String) {
+    var x: Double = 0.0
+    var y: Double = 0.0
+    var width: Double = 10.0
+    var height: Double = 10.0
+    var scale: Double = 1.0
+
+    private var renderHud: (HudElement.() -> Unit)? = null
+    private var preview: (HudElement.() -> Unit)? = null
+    private var visibleIf: (HudElement.() -> Boolean)? = null
+
+    private var dimensions: (HudElement.() -> Unit)? = null
+    private var setWidth: (HudElement.() -> Number)? = null
+    private var setHeight: (HudElement.() -> Number)? = null
+
+    fun at(x: Number, y: Number) {
+        this.x = x.toDouble()
+        this.y = y.toDouble()
+    }
+
+    fun size(width: Number, height: Number, scale: Number = 1.0) {
+        this.width = width.toDouble()
+        this.height = height.toDouble()
+        this.scale = scale.toDouble()
+    }
+
+    fun size(text: String, height: Number = fontHeight - 2, scale: Number = 1.0) {
+        size(text.getWidth(), height, scale)
+    }
+
+    fun render(block: HudElement.() -> Unit) {
+        this.renderHud = block
+    }
+
+    fun preview(block: HudElement.() -> Unit) {
+        this.preview = block
+    }
+
+    fun visibleIf(block: HudElement.() -> Boolean) = apply {
+        this.visibleIf = block
+    }
+
+    fun updateSize(block: HudElement.() -> Unit) {
+        this.dimensions = block
+    }
+
+    fun width(block: HudElement.() -> Number) {
+        this.setWidth = block
+    }
+
+    fun height(block: HudElement.() -> Number) {
+        this.setHeight = block
+    }
+
+    fun build(): HudElement {
+        return object : HudElement(name, x, y, width, height, scale) {
+            override fun renderHud() { renderHud?.invoke(this) }
+            override fun preview() { preview?.invoke(this) ?: super.preview() }
+            override val visible: Boolean get() = visibleIf?.invoke(this) ?: super.visible
+            override fun updateSize() {
+                dimensions?.invoke(this)
+                setWidth?.let { width = it(this).toDouble() }
+                setHeight?.let { height = it(this).toDouble() }
+            }
+        }
+    }
+}
+
+data class ElementBounds(
+    val left: Double,
+    val right: Double,
+    val top: Double,
+    val bottom: Double,
+    val centreX: Double,
+    val centreY: Double
+)
+

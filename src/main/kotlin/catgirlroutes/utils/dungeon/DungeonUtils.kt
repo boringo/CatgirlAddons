@@ -4,23 +4,15 @@ import catgirlroutes.CatgirlRoutes.Companion.mc
 import catgirlroutes.events.impl.PacketReceiveEvent
 import catgirlroutes.events.impl.RoomEnterEvent
 import catgirlroutes.module.impl.render.ClickGui
+import catgirlroutes.utils.*
 import catgirlroutes.utils.ChatUtils.modMessage
-import catgirlroutes.utils.Island
-import catgirlroutes.utils.LocationManager
 import catgirlroutes.utils.LocationManager.currentDungeon
 import catgirlroutes.utils.PlayerUtils.getItemSlot
 import catgirlroutes.utils.PlayerUtils.posY
-import catgirlroutes.utils.Utils.addVec
-import catgirlroutes.utils.Utils.equalsOneOf
-import catgirlroutes.utils.Utils.noControlCodes
-import catgirlroutes.utils.Utils.romanToInt
-import catgirlroutes.utils.Utils.rotateAroundNorth
-import catgirlroutes.utils.Utils.rotateToNorth
-import catgirlroutes.utils.Utils.rotationNumber
-import catgirlroutes.utils.Utils.subtractVec
 import catgirlroutes.utils.dungeon.tiles.Room
 import net.minecraft.block.BlockSkull
 import net.minecraft.block.state.IBlockState
+import net.minecraft.entity.player.EntityPlayer
 import net.minecraft.init.Blocks
 import net.minecraft.network.play.server.S38PacketPlayerListItem
 import net.minecraft.tileentity.TileEntitySkull
@@ -35,7 +27,7 @@ import kotlin.math.floor
 object DungeonUtils {
 
     val inDungeons: Boolean
-        get() = LocationManager.currentArea.isArea(Island.Dungeon) || ClickGui.forceDungeon.enabled
+        get() = LocationManager.currentArea.isArea(Island.Dungeon) || ClickGui.forceDungeon
 
     val floorNumber: Int
         get() = currentDungeon?.floor?.floorNumber ?: 0
@@ -44,7 +36,7 @@ object DungeonUtils {
         get() = currentDungeon?.floor ?: Floor.E
 
     val inBoss: Boolean
-        get() = currentDungeon?.inBoss == true
+        get() = currentDungeon?.inBoss == true || ClickGui.forceBoss
 
     val secretCount: Int
         get() = currentDungeon?.dungeonStats?.secretsFound ?: 0
@@ -162,7 +154,7 @@ object DungeonUtils {
      * @return The current phase of floor 7 boss, or `null` if the player is not in the boss room.
      */
     fun getF7Phase(): M7Phases {
-        if (!isFloor(7) || !inBoss) return M7Phases.Unknown
+        if ((!isFloor(7) || !inBoss) && !ClickGui.forceBoss) return M7Phases.Unknown
 
         return when {
             posY > 210 -> M7Phases.P1
@@ -170,6 +162,18 @@ object DungeonUtils {
             posY > 100 -> M7Phases.P3
             posY > 45 -> M7Phases.P4
             else -> M7Phases.P5
+        }
+    }
+
+    fun getP3Section(player: EntityPlayer = mc.thePlayer): P3Sections {
+        if (getF7Phase() != M7Phases.P3 && !ClickGui.forceBoss) return P3Sections.Unknown
+
+        return when {
+            player.posX in 89.0..113.0 && player.posZ in 30.0..122.0 -> P3Sections.S1
+            player.posX in 19.0..111.0 && player.posZ in 121.0..145.0 -> P3Sections.S2
+            player.posX in -6.0..19.0 && player.posZ in 51.0..143.0 -> P3Sections.S3
+            player.posX in -2.0..90.0 && player.posZ in 27.0..51.0 -> P3Sections.S4
+            else -> P3Sections.Unknown
         }
     }
 
@@ -276,7 +280,7 @@ object DungeonUtils {
         "Decoy", "Inflatable Jerry", "Spirit Leap", "Trap", "Training Weights", "Defuse Kit", "Dungeon Chest Key", "Treasure Talisman", "Revive Stone", "Architect's First Draft"
     )
 
-    val termGuiTitles: Array<String> = arrayOf("Click in order!", "Select all the", "What starts with:", "Change all to the same color!", "Correct all the panes!", "Click the button on time!")
+    val termGuiTitles = listOf("Click in order!", "Select all the", "What starts with:", "Change all to the same color!", "Correct all the panes!", "Click the button on time!")
 
     val termInactiveTitles: Array<String> = arrayOf("Inactive Terminal", "Inactive Device", "Not Activated");
 }

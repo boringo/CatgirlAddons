@@ -1,24 +1,30 @@
 package catgirlroutes.ui.hud
 
-import catgirlroutes.CatgirlRoutes
+import catgirlroutes.CatgirlRoutes.Companion.moduleConfig
+import catgirlroutes.ui.Screen
+import catgirlroutes.ui.clickgui.util.MouseUtils.mx
+import catgirlroutes.ui.clickgui.util.MouseUtils.my
 import catgirlroutes.ui.misc.elements.impl.MiscElementButton
+import catgirlroutes.ui.misc.elements.impl.button
 import catgirlroutes.utils.ChatUtils.modMessage
-import net.minecraft.client.gui.GuiScreen
-import net.minecraft.client.gui.ScaledResolution
-import org.lwjgl.input.Mouse
-import java.io.IOException
+import catgirlroutes.utils.equalsOneOf
+import catgirlroutes.utils.render.HUDRenderUtils.renderRect
+import java.awt.Color
+import kotlin.math.abs
 
 /**
  * The GUI for editing the positions and scale of HUD elements.
  *
  * @author Aton
  */
-object EditHudGUI : GuiScreen() {
+object EditHudGUI : Screen(false) {
 
     private val hudElements: ArrayList<HudElement> = arrayListOf()
     private var draggingElement: HudElement? = null
-    private var startOffsetX = 0
-    private var startOffsetY = 0
+    private var startOffsetX = 0.0
+    private var startOffsetY = 0.0
+
+    private var snapLines = mutableListOf<Pair<Double, Boolean>>()
 
     private lateinit var resetButton: MiscElementButton
 
@@ -27,115 +33,155 @@ object EditHudGUI : GuiScreen() {
         hudElements.addAll(0, nonDuplicate)
     }
 
-    override fun initGui() {
-        val sr = ScaledResolution(mc)
-        this.resetButton = MiscElementButton(
-            "Reset HUD",
-            sr.scaledWidth_double / 2.0 - 60.0 / 2.0,
-            sr.scaledHeight_double - 40.0,
-            60.0, 20.0
-        ) { modMessage("Resetting elements") }
+    override fun onInit() {
+        this.resetButton = button {
+            text = "Reset HUD"
+            at(sr.scaledWidth_double / 2.0 - 60.0 / 2.0, sr.scaledHeight_double - 40.0)
+            size(60.0, 20.0)
+            onClick { modMessage("Resetting elements") }
+        }
 
-        hudElements.forEach { it.setDimensions() }
-        super.initGui()
+        hudElements.forEach { it.updateSize() }
     }
 
     /**
      * Draw a previes of all hud elements, regardless of whether they are visible.
      */
-    override fun drawScreen(mouseX: Int, mouseY: Int, partialTicks: Float) {
-
-        // Render a reset Button if not dragging elements
-        if (this.draggingElement == null) resetButton.render(mouseX, mouseY)
+    override fun draw() {
+        if (this.draggingElement == null) {
+            resetButton.draw(mx, my)
+        } else {
+            snapLines.forEach { (pos, isVertical) ->
+                val colour = if (pos.equalsOneOf(sr.scaledWidth_double / 2.0, sr.scaledHeight_double / 2.0)) Color.RED else Color.YELLOW
+                if (isVertical) {
+                    renderRect(pos, 0.0, 0.5, sr.scaledHeight_double, colour)
+                } else {
+                    renderRect(0.0, pos, sr.scaledWidth_double, 0.5, colour)
+                }
+            }
+        }
 
         for (element in hudElements) {
             element.renderPreview(element == draggingElement)
         }
 
-        mouseDrag(mouseX, mouseY)
-
-        super.drawScreen(mouseX, mouseY, partialTicks)
+        mouseDrag(mx, my)
     }
 
-    @Throws(IOException::class)
-    override fun handleMouseInput() {
-        super.handleMouseInput()
-        val mouseX = Mouse.getEventX() * super.width / super.mc.displayWidth
-        val mouseY = super.height - Mouse.getEventY() * super.height / super.mc.displayHeight - 1
-
-        //Scaling mouse coords neccessary here if the gui scale is changed
-
-        var i = Mouse.getEventDWheel()
-        if (i != 0) {
-            if (i > 1) {
-                i = 1
-            }
-            if (i < -1) {
-                i = -1
-            }
-            if (isShiftKeyDown()) {
-                i *= 7
-            }
-            /** Check all hud elements for scroll action. this is used to change the scale
-             * Reversed order is used to guarantee that the panel rendered on top will be handled first. */
-            for (element in hudElements.reversed()) {
-                if (isCursorOnElement(mouseX, mouseY, element) && element.enabled) {
-                    element.scroll(i)
-                    return
-                }
-            }
+    override fun onScroll(amount: Int) {
+        hudElements.reversed().forEach {
+            if (it.isHovered()) it.scroll(amount)
         }
     }
 
-    override fun mouseClicked(mouseX: Int, mouseY: Int, mouseButton: Int) {
-        if (mouseButton != 0) return
-        if (resetButton.mouseClicked(mouseX, mouseY, mouseButton) && !isCursorOnElement(mouseX, mouseY)) {
-            for (element in hudElements.reversed()) {
-                if (element.enabled) element.resetElement()
-            }
-        } else {
-            for (element in hudElements.reversed()) {
-                if (isCursorOnElement(mouseX, mouseY, element) && element.enabled) {
-                    draggingElement = element
-                    startOffsetX = mouseX - element.x
-                    startOffsetY = mouseY - element.y
-                    break
+    override fun onMouseClick(mouseButton: Int) {
+        when (mouseButton) {
+            0 -> {
+                this.draggingElement = hudElements.reversed().firstOrNull { it.toggled && it.isHovered() }
+
+                if (this.draggingElement != null) {
+                    this.startOffsetX = mx - this.draggingElement!!.x
+                    this.startOffsetY = my - this.draggingElement!!.y
+                } else if (this.resetButton.onMouseClick(mx, my, mouseButton)) {
+                    this.hudElements.reversed().forEach {
+                        if (it.toggled) it.resetElement()
+                    }
                 }
             }
+            1 -> hudElements.reversed().firstOrNull { it.toggled && it.isHovered() }?.resetElement()
+            2 -> hudElements.reversed().firstOrNull { it.toggled && it.isHovered() }?.parentModule?.openInGui()
         }
-        super.mouseClicked(mouseX, mouseY, mouseButton)
     }
 
     private fun mouseDrag(mouseX: Int, mouseY: Int) {
-        if (draggingElement != null) {
-            draggingElement!!.x = mouseX - startOffsetX
-            draggingElement!!.y = mouseY - startOffsetY
+        draggingElement?.let { element ->
+            snapLines.clear()
+
+            var newX = mouseX - startOffsetX
+            var newY = mouseY - startOffsetY
+
+            if (!isShiftKeyDown()) {
+                val centreX = sr.scaledWidth_double / 2.0
+                val centreY = sr.scaledHeight_double / 2.0
+
+                val bounds = element.getBounds(newX, newY)
+
+                val snapPoints = mutableListOf(
+                    SnapPoint(centreX, bounds.left, true),
+                    SnapPoint(centreX, bounds.centreX, true),
+                    SnapPoint(centreX, bounds.right, true),
+                    SnapPoint(centreY, bounds.top, false),
+                    SnapPoint(centreY, bounds.centreY, false),
+                    SnapPoint(centreY, bounds.bottom, false)
+                )
+
+                hudElements.filter { it != element && it.toggled }.forEach { other ->
+                    val otherBounds = other.getBounds(other.x, other.y)
+                    snapPoints += getSnapPoints(bounds, otherBounds)
+                }
+
+                val (hOffset, lineX) = snapPoints.getClosestElement(true)
+                val (vOffset, lineY) = snapPoints.getClosestElement(false)
+
+                newX += hOffset
+                newY += vOffset
+
+                lineX?.let { snapLines.add(it to true) }
+                lineY?.let { snapLines.add(it to false) }
+            }
+
+            element.x = newX.coerceIn(0.0, (sr.scaledWidth_double - element.width * element.scale).coerceAtLeast(0.0))
+
+            element.y = newY.coerceIn(0.0, (sr.scaledHeight_double - element.height * element.scale).coerceAtLeast(0.0))
         }
     }
 
-    override fun mouseReleased(mouseX: Int, mouseY: Int, state: Int) {
+    private fun getSnapPoints(bounds: ElementBounds, otherBounds: ElementBounds): List<SnapPoint> {
+        val snapPoints = mutableListOf<SnapPoint>()
+
+        val horizontal = listOf(bounds.left, bounds.centreX, bounds.right)
+        val otherHorizontal = listOf(otherBounds.left, otherBounds.centreX, otherBounds.right)
+
+        for (other in otherHorizontal) {
+            for (pos in horizontal) {
+                snapPoints.add(SnapPoint(other, pos, true))
+            }
+        }
+
+        val vertical = listOf(bounds.top, bounds.centreY, bounds.bottom)
+        val otherVertical = listOf(otherBounds.top, otherBounds.centreY, otherBounds.bottom)
+
+        for (other in otherVertical) {
+            for (pos in vertical) {
+                snapPoints.add(SnapPoint(other, pos, false))
+            }
+        }
+
+        return snapPoints
+    }
+
+    private fun List<SnapPoint>.getClosestElement(vertical: Boolean): Pair<Double, Double?> {
+        return this
+            .filter { it.isVertical == vertical }
+            .minByOrNull { abs(it.distance) }
+            ?.takeIf { abs(it.distance) < 5.0 }
+            ?.let { it.distance to it.targetPos }
+            ?: (0.0 to null)
+    }
+
+    override fun onMouseRelease(state: Int) {
         draggingElement = null
-        super.mouseReleased(mouseX, mouseY, state)
     }
 
     override fun onGuiClosed() {
-        CatgirlRoutes.moduleConfig.saveConfig()
+        moduleConfig.saveConfig()
     }
+}
 
-    override fun doesGuiPauseGame(): Boolean {
-        return false
-    }
-
-    private fun isCursorOnElement(mouseX: Int, mouseY: Int, element: HudElement): Boolean {
-        val scale = element.scale.value
-        return mouseX > (element.x - 2.5 * scale) && mouseX < (element.x + element.width * scale + scale) // to the left by 2.5, to the right by 1
-                && mouseY > (element.y - 2 * scale) && mouseY < (element.y + element.height * scale - 2 * scale) // to minus 2 bottom, plus 2 top
-    }
-
-    private fun isCursorOnElement(mouseX: Int, mouseY: Int): Boolean {
-        for (element in hudElements) {
-            return isCursorOnElement(mouseX, mouseY, element)
-        }
-        return false
-    }
+private data class SnapPoint(
+    val targetPos: Double,
+    val elementEdgePos: Double,
+    val isVertical: Boolean
+) {
+    val distance: Double get() = targetPos - elementEdgePos
 }

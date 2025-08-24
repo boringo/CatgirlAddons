@@ -5,12 +5,15 @@ import catgirlroutes.ui.animations.impl.EaseOutQuadAnimation
 import catgirlroutes.ui.clickgui.util.ColorUtil.hex
 import catgirlroutes.ui.clickgui.util.ColorUtil.withAlpha
 import catgirlroutes.ui.clickgui.util.FontUtil
+import catgirlroutes.ui.clickgui.util.MouseUtils.mouseX
+import catgirlroutes.ui.clickgui.util.MouseUtils.mouseY
 import catgirlroutes.ui.clickguinew.elements.Element
 import catgirlroutes.ui.clickguinew.elements.ElementType
 import catgirlroutes.ui.clickguinew.elements.ModuleButton
-import catgirlroutes.ui.misc.elements.impl.MiscElementText
+import catgirlroutes.ui.misc.elements.impl.textField
+import catgirlroutes.ui.misc.elements.util.update
 import catgirlroutes.utils.ChatUtils.debugMessage
-import catgirlroutes.utils.Utils.equalsOneOf
+import catgirlroutes.utils.equalsOneOf
 import catgirlroutes.utils.render.HUDRenderUtils.drawRoundedOutline
 import catgirlroutes.utils.render.HUDRenderUtils.drawRoundedBorderedRect
 import catgirlroutes.utils.render.HUDRenderUtils.drawRoundedHueBox
@@ -26,25 +29,28 @@ class ElementColor(parent: ModuleButton, setting: ColorSetting) : // todo: shado
 
     var dragging: Int? = null
 
+    init {
+        width = parent.width
+    }
+
     private inline val colorValue: Color
         get() = this.setting.value
 
-    private val hexTextField = MiscElementText(
-        FontUtil.getStringWidth("Hex") + 5.0,
-        DEFAULT_HEIGHT * 8 + 5.0,
-        width / 2.0 - (FontUtil.getStringWidth("Hex") + 5.0) + 27.0,
-        DEFAULT_HEIGHT,
-        colorValue.hex,
-        prependText = "§7#§r",
-        thickness = 1.0,
-        radius = 5.0,
-        outlineColour = colorValue.hsbMax(setting).withAlpha(255).darker(),
-        outlineFocusColour = colorValue.hsbMax(setting).withAlpha(255).darker()
-    )
+
+    private val hexTextField = textField {
+        text = colorValue.hex
+        at(FontUtil.getStringWidth("Hex") + 5.0, DEFAULT_HEIGHT * 8 + 5.0)
+        width = this@ElementColor.width / 2.0 - (FontUtil.getStringWidth("Hex") + 5.0) + if (setting.allowAlpha) 26.5 else 13.5
+        height = DEFAULT_HEIGHT
+        prependText = "§7#§r"
+        outlineColour = colorValue.hsbMax(setting).withAlpha(255).darker()
+        outlineHoverColour = colorValue.hsbMax(setting).withAlpha(255).darker()
+    }
+
     private var hexPrev = this.hexTextField.text
     private val extendAnimation = EaseOutQuadAnimation(300)
 
-    override fun renderElement(mouseX: Int, mouseY: Int, partialTicks: Float): Double {
+    override fun renderElement(): Double {
         height = this.extendAnimation.get(if (this.setting.collapsible) DEFAULT_HEIGHT else DEFAULT_HEIGHT * 9 + 5.0, DEFAULT_HEIGHT * 9 + 5.0, !extended)
         FontUtil.drawString(displayName, 0.0, 0.0)
         drawRoundedBorderedRect(
@@ -117,11 +123,11 @@ class ElementColor(parent: ModuleButton, setting: ColorSetting) : // todo: shado
          */
         when (this.dragging) {
             0 -> {
-                this.setting.saturation = MathHelper.clamp_float(((mouseX - xAbsolute) / (width / 2.0)).toFloat(), 0.0f, 1.0f)
-                this.setting.brightness = MathHelper.clamp_float((-(mouseY - yAbsolute - DEFAULT_HEIGHT * 8) / (DEFAULT_HEIGHT * 7)).toFloat(), 0.0f, 1.0f)
+                this.setting.saturation = MathHelper.clamp_float((mouseXRel / (width / 2.0)).toFloat(), 0.0f, 1.0f)
+                this.setting.brightness = MathHelper.clamp_float((-(mouseYRel - DEFAULT_HEIGHT * 8) / (DEFAULT_HEIGHT * 7)).toFloat(), 0.0f, 1.0f)
             }
-            1 -> this.setting.hue = MathHelper.clamp_float((((mouseY - yAbsolute - DEFAULT_HEIGHT - 2.0) / (DEFAULT_HEIGHT * 7.0 - 2.0)).toFloat()), 0.0f, 1.0f)
-            2 -> this.setting.alpha = MathHelper.clamp_float(1f - ((mouseY - yAbsolute - DEFAULT_HEIGHT - 2.0) / (DEFAULT_HEIGHT * 7.0 - 2.0)).toFloat(), 0.0f, 1.0f)
+            1 -> this.setting.hue = MathHelper.clamp_float((((mouseYRel - DEFAULT_HEIGHT - 2.0) / (DEFAULT_HEIGHT * 7.0 - 2.0)).toFloat()), 0.0f, 1.0f)
+            2 -> this.setting.alpha = MathHelper.clamp_float(1f - ((mouseYRel - DEFAULT_HEIGHT - 2.0) / (DEFAULT_HEIGHT * 7.0 - 2.0)).toFloat(), 0.0f, 1.0f)
         }
 
         /**
@@ -129,17 +135,16 @@ class ElementColor(parent: ModuleButton, setting: ColorSetting) : // todo: shado
          */
 
         if (dragging != null) {
-            this.hexTextField.apply {
+            this.hexTextField.update {
                 text = colorValue.hex
-                outlineColour = colorValue.hsbMax(setting).withAlpha(255).darker()
-                outlineFocusColour = colorValue.hsbMax(setting).withAlpha(255).darker()
+                outlineColour = colorValue.hsbMax(setting).withAlpha(255).darker() // FIXME
+                outlineHoverColour = colorValue.hsbMax(setting).withAlpha(255).darker()
             }
             hexPrev = this.hexTextField.text
-
         }
 
         FontUtil.drawString("Hex", 0.0, DEFAULT_HEIGHT * 8 + 7.0)
-        this.hexTextField.render(mouseX - xAbsolute.toInt(), mouseY - yAbsolute.toInt())
+        this.hexTextField.draw(mouseXRel, mouseYRel)
 
         /**
          * FAVOURITE
@@ -157,7 +162,7 @@ class ElementColor(parent: ModuleButton, setting: ColorSetting) : // todo: shado
         return height
     }
 
-    override fun mouseClicked(mouseX: Int, mouseY: Int, mouseButton: Int): Boolean {
+    override fun mouseClicked(mouseButton: Int): Boolean {
         if (mouseButton == 0) {
 
             if (isHovered(mouseX, mouseY, FontUtil.getStringWidth(displayName) + 5.0, 0.0, 20.0, 9.0) && this.setting.collapsible) {
@@ -168,9 +173,9 @@ class ElementColor(parent: ModuleButton, setting: ColorSetting) : // todo: shado
             if (!extended && this.setting.collapsible) return false
 
             dragging = when {
-                isHovered(mouseX, mouseY, 0.0, DEFAULT_HEIGHT, width / 2, DEFAULT_HEIGHT * 6) -> 0 // SB box
-                isHovered(mouseX, mouseY, width / 2.0 + 4.5, DEFAULT_HEIGHT, 8.0, DEFAULT_HEIGHT * 6 - 2.0) -> 1 // hue
-                isHovered(mouseX, mouseY, width / 2.0 + DEFAULT_HEIGHT + 4.5, DEFAULT_HEIGHT, 8.0, DEFAULT_HEIGHT * 6) && this.setting.allowAlpha -> 2 // alpha
+                isHovered(mouseX, mouseY, 0.0, DEFAULT_HEIGHT, width / 2, DEFAULT_HEIGHT * 7) -> 0 // SB box
+                isHovered(mouseX, mouseY, width / 2.0 + 4.5, DEFAULT_HEIGHT, 8.0, DEFAULT_HEIGHT * 7 - 2.0) -> 1 // hue
+                isHovered(mouseX, mouseY, width / 2.0 + DEFAULT_HEIGHT + 4.5, DEFAULT_HEIGHT, 8.0, DEFAULT_HEIGHT * 7) && this.setting.allowAlpha -> 2 // alpha
                 else -> null
             }
         } else if (mouseButton == 1) {
@@ -179,24 +184,24 @@ class ElementColor(parent: ModuleButton, setting: ColorSetting) : // todo: shado
                 return true
             }
         }
-        return this.hexTextField.mouseClicked(mouseX - xAbsolute.toInt(), mouseY - yAbsolute.toInt(), mouseButton)
+        return this.hexTextField.onMouseClick(mouseXRel, mouseYRel, mouseButton)
     }
 
-    override fun mouseClickMove(mouseX: Int, mouseY: Int, clickedMouseButton: Int, timeSinceLastClick: Long) {
-        this.hexTextField.mouseClickMove(mouseX - xAbsolute.toInt(), mouseY - yAbsolute.toInt(), clickedMouseButton, timeSinceLastClick)
-        super.mouseClickMove(mouseX, mouseY, clickedMouseButton, timeSinceLastClick)
+    override fun mouseClickMove(mouseButton: Int, timeSinceLastClick: Long) {
+        this.hexTextField.mouseClickMove(mouseXRel, mouseYRel, mouseButton, timeSinceLastClick)
+        super.mouseClickMove(mouseButton, timeSinceLastClick)
     }
 
-    override fun mouseReleased(mouseX: Int, mouseY: Int, state: Int) {
+    override fun mouseReleased(state: Int) {
         this.dragging = null
-        super.mouseReleased(mouseX, mouseY, state)
+        super.mouseReleased(state)
     }
 
     override fun keyTyped(typedChar: Char, keyCode: Int): Boolean {
-        if (this.hexTextField.keyTyped(typedChar, keyCode)) {
+        if (this.hexTextField.onKey(typedChar, keyCode)) {
             if (keyCode == Keyboard.KEY_ESCAPE || keyCode == Keyboard.KEY_NUMPADENTER || keyCode == Keyboard.KEY_RETURN) {
                 this.hexTextField.text = this.hexTextField.text.completeHexString().removePrefix("#")
-                this.hexTextField.focus = false
+                this.hexTextField.isFocused = false
             }
             return true
         }

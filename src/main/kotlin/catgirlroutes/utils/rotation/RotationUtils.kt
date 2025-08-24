@@ -1,15 +1,11 @@
 package catgirlroutes.utils.rotation
 
 import catgirlroutes.CatgirlRoutes.Companion.mc
-import catgirlroutes.commands.commodore
-import catgirlroutes.utils.ChatUtils.debugMessage
-import catgirlroutes.utils.ChatUtils.modMessage
 import catgirlroutes.utils.rotation.RotationUtils.rotateSmoothly
+import com.github.stivais.commodore.Commodore
 import net.minecraft.util.Vec3
-import net.minecraft.util.Vec4b
 import net.minecraftforge.client.event.RenderWorldLastEvent
 import net.minecraftforge.fml.common.eventhandler.SubscribeEvent
-import net.minecraftforge.fml.common.gameevent.TickEvent.ClientTickEvent
 import kotlin.math.atan2
 import kotlin.math.sqrt
 
@@ -33,6 +29,10 @@ object RotationUtils {
         val normalizedYaw = if (yaw < -180) yaw + 360 else yaw
 
         return Pair(normalizedYaw.toFloat(), pitch.toFloat())
+    }
+
+    fun getYawAndPitch(vec3: Vec3): Pair<Float, Float> {
+        return getYawAndPitch(vec3.xCoord, vec3.yCoord, vec3.zCoord)
     }
 
     var aiming = false
@@ -84,7 +84,7 @@ object RotationUtils {
     }
 }
 
-val rotationDebug = commodore("rot") {
+val rotationDebug = Commodore("rot") {
     literal("set").runs{
             yaw: Float, pitch: Float, time : Int ->
         rotateSmoothly(yaw, pitch, time)

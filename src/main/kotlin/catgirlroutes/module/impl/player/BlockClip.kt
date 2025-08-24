@@ -5,7 +5,7 @@ import catgirlroutes.module.Category
 import catgirlroutes.module.Module
 import catgirlroutes.module.settings.impl.BooleanSetting
 import catgirlroutes.module.settings.impl.NumberSetting
-import catgirlroutes.module.settings.impl.StringSelectorSetting
+import catgirlroutes.module.settings.impl.SelectorSetting
 import catgirlroutes.utils.ChatUtils.modMessage
 import catgirlroutes.utils.MovementUtils
 import catgirlroutes.utils.Notifications
@@ -23,19 +23,15 @@ object BlockClip : Module(
     Category.PLAYER,
     "Clips you through blocks"
 ) {
-    private val distance: NumberSetting = NumberSetting("Distance", 1.25, 0.0, 1.5, 0.01)
-    private val directions: StringSelectorSetting = StringSelectorSetting("Directions", "All", arrayListOf("All", "Axis"))
-    private val notifications: BooleanSetting = BooleanSetting("Notifications", false, "Makes Block Clip send notification on activation.")
-
-    init {
-        addSettings(this.distance, this.directions, this.notifications)
-    }
+    private val distance by NumberSetting("Distance", 1.25, 0.0, 1.5, 0.01)
+    private val directions by SelectorSetting("Directions", "All", arrayListOf("All", "Axis"))
+    private val notifications by BooleanSetting("Notifications", false, "Makes Block Clip send notification on activation.")
 
     private var clipping = false
 
     override fun onKeyBind() {
         if ((!mc.thePlayer.onGround) || !this.enabled) return
-        if (this.notifications.enabled) Notifications.send("Block clipping") else modMessage("Block clipping")
+        if (this.notifications) Notifications.send("Block clipping") else modMessage("Block clipping")
         MovementUtils.stopMovement()
         this.blockClip(0.062)
         clipping = true
@@ -44,7 +40,7 @@ object BlockClip : Module(
     @SubscribeEvent
     fun onTick(event: TickEvent.ClientTickEvent) {
         if (event.phase != TickEvent.Phase.END || !clipping) return
-        this.blockClip(this.distance.value)
+        this.blockClip(this.distance)
         MovementUtils.restartMovement()
         clipping = false
     }

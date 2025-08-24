@@ -3,7 +3,9 @@ package catgirlroutes.module.impl.dungeons
 import catgirlroutes.CatgirlRoutes.Companion.mc
 import catgirlroutes.module.Category
 import catgirlroutes.module.Module
+import catgirlroutes.module.settings.impl.HudSetting
 import catgirlroutes.module.settings.impl.NumberSetting
+import catgirlroutes.ui.clickgui.util.FontUtil.drawStringWithShadow
 import catgirlroutes.utils.ClientListener.scheduleTask
 import catgirlroutes.utils.MovementUtils.restartMovement
 import catgirlroutes.utils.MovementUtils.stopMovement
@@ -12,13 +14,15 @@ import net.minecraftforge.fml.common.gameevent.TickEvent
 import kotlin.math.abs
 
 object CoreClip: Module(
-    "Core clip",
+    "Core Clip",
     category = Category.DUNGEON
 ){
-    private var clipDelay = NumberSetting("Delay", 0.0, 0.0, 10.0, 1.0)
-
-    init {
-        addSettings(clipDelay)
+    private var clipDelay by NumberSetting("Delay", 0.0, 0.0, 10.0, 1.0, unit = "t")
+    private val hud by HudSetting("Delay hud") {
+        size("Ticks: 5")
+        visibleIf { passedTicks > 0 }
+        render { drawStringWithShadow("Ticks: $passedTicks", 0.0, 0.0) }
+        preview { drawStringWithShadow("Ticks: 5", 0.0, 0.0) }
     }
 
     private var passedTicks = 0
@@ -34,7 +38,7 @@ object CoreClip: Module(
             return
         }
         if (isWithinTolerence(mc.thePlayer.posZ, 53.7)) {
-            if (passedTicks < clipDelay.value) {
+            if (passedTicks < clipDelay) {
                 passedTicks++
                 return
             }
@@ -44,7 +48,7 @@ object CoreClip: Module(
             stopMovement()
             scheduleTask(0) {restartMovement()}
         } else if (isWithinTolerence(mc.thePlayer.posZ, 55.3)) {
-            if (passedTicks < clipDelay.value) {
+            if (passedTicks < clipDelay) {
                 passedTicks++
                 return
             }

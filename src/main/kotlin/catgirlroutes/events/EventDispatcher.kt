@@ -2,21 +2,24 @@ package catgirlroutes.events
 
 import catgirlroutes.CatgirlRoutes.Companion.mc
 import catgirlroutes.events.impl.*
-import catgirlroutes.utils.ChatUtils.modMessage
-import catgirlroutes.utils.Utils.containsOneOf
-import catgirlroutes.utils.Utils.equalsOneOf
-import catgirlroutes.utils.Utils.postAndCatch
-import catgirlroutes.utils.Utils.unformattedName
+import catgirlroutes.utils.*
 import catgirlroutes.utils.dungeon.DungeonUtils.dungeonItemDrops
 import catgirlroutes.utils.dungeon.DungeonUtils.inBoss
 import catgirlroutes.utils.dungeon.DungeonUtils.inDungeons
 import catgirlroutes.utils.dungeon.DungeonUtils.isSecret
+import catgirlroutes.utils.dungeon.DungeonUtils.termGuiTitles
+import io.netty.channel.ChannelDuplexHandler
+import io.netty.channel.ChannelHandlerContext
 import net.minecraft.entity.item.EntityItem
+import net.minecraft.network.Packet
 import net.minecraft.network.play.client.C08PacketPlayerBlockPlacement
+import net.minecraft.network.play.server.S02PacketChat
 import net.minecraft.network.play.server.S29PacketSoundEffect
 import net.minecraft.network.play.server.S2DPacketOpenWindow
-import net.minecraftforge.fml.common.eventhandler.EventPriority
+import net.minecraft.network.play.server.S32PacketConfirmTransaction
+import net.minecraftforge.common.MinecraftForge
 import net.minecraftforge.fml.common.eventhandler.SubscribeEvent
+import net.minecraftforge.fml.common.network.FMLNetworkEvent
 
 object EventDispatcher { // I didn't come up with anything better so I'm just skibidiing odon clint :(
 
@@ -35,23 +38,37 @@ object EventDispatcher { // I didn't come up with anything better so I'm just sk
     @SubscribeEvent
     fun onPacket(event: PacketReceiveEvent) {
         if (event.packet is S29PacketSoundEffect && inDungeons && !inBoss && (event.packet.soundName.equalsOneOf("mob.bat.hurt", "mob.bat.death") && event.packet.volume == 0.1f)) SecretPickupEvent.Bat(event.packet).postAndCatch()
+        if (event.packet is S32PacketConfirmTransaction) ServerTickEvent().postAndCatch()
+        if (event.packet is S02PacketChat) ChatPacket(event.packet.chatComponent.unformattedText.noControlCodes, event.packet.chatComponent.formattedText).postAndCatch()
     }
 
-    val termNames = listOf(
-        Regex("^Click in order!$"),
-        Regex("^Select all the (.+?) items!$"),
-        Regex("^What starts with: '(.+?)'\\?$"),
-        Regex("^Change all to same color!$"),
-        Regex("^Correct all the panes!$"),
-        Regex("^Click the button on time!$")
-    )
+//    @SubscribeEvent
+//    fun onPacketSent(event: PacketSentEvent) {
+//        if (event.packet !is C02PacketUseEntity) return
+//        val packet: C02PacketUseEntity = event.packet
+//        val entity = packet.getEntityFromWorld(mc.theWorld)
+//        if (entity !is EntityArmorStand) return
+//        val armorStand: EntityArmorStand = entity
+//        if (armorStand.name.noControlCodes.contains("Inactive Terminal", true)) {
+//            TermOpenEvent(C02PacketUseEntity()).postAndCatch()
+//        }
+//    }
 
-    @SubscribeEvent(receiveCanceled = true, priority = EventPriority.HIGHEST)
-    fun onS2D(event: PacketReceiveEvent) = with(event.packet) {
-        if (event.packet !is S2DPacketOpenWindow) return
-        val title = event.packet.windowTitle.unformattedText
-        if (termNames.any{regex -> regex.matches(title)}) {
-            TermOpenEvent.open(event.packet).postAndCatch()
-        }
+    @SubscribeEvent
+    fun onNetworkEvent(event: FMLNetworkEvent.ClientConnectedToServerEvent) {
+        event.manager.channel().pipeline().addAfter("fml:packet_handler", "CGA_packet_handler", object : ChannelDuplexHandler() {
+            override fun channelRead(ctx: ChannelHandlerContext?, msg: Any?) {
+
+                if (msg is Packet<*>) {
+                    val packetEvent = RawPacketReceiveEvent(msg)
+                    MinecraftForge.EVENT_BUS.post(packetEvent)
+
+                    if (msg is S2DPacketOpenWindow) {
+                        if (msg.windowTitle.toString().noControlCodes.containsOneOf(termGuiTitles)) TermOpenEvent(msg).postAndCatch()
+                    }
+                }
+                ctx?.fireChannelRead(msg)
+            }
+        })
     }
 }

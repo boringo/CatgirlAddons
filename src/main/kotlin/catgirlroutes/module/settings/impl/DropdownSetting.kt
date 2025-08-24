@@ -6,11 +6,31 @@ import catgirlroutes.module.settings.Visibility
 /**
  * A setting that shows or hides settings in the ClickGui only
  */
+//class DropdownSetting(
+//    name: String,
+//    override val default: Boolean = false,
+//) : Setting<Boolean>(name, null, Visibility.CLICK_GUI_ONLY) {
+//    override var value: Boolean = default
+//    val dependentModules: MutableList<Setting<*>> = mutableListOf()
+//    var enabled: Boolean by this::value
+//}
+
 class DropdownSetting(
     name: String,
-    override val default: Boolean = false,
-) : Setting<Boolean>(name, null, Visibility.CLICK_GUI_ONLY) {
-    override var value: Boolean = default
-    val dependentModules: MutableList<Setting<*>> = mutableListOf()
-    var enabled: Boolean by this::value
+    enabled: Boolean = false,
+    override val default: Dropdown = Dropdown(enabled),
+) : Setting<Dropdown>(name, null, Visibility.CLICK_GUI_ONLY) {
+
+    override var value: Dropdown = default
+    val dependentModules = value.dependentModules
+    var enabled: Boolean
+        get() = value.enabled
+        set(value) { this.value.enabled = value }
+
+}
+
+class Dropdown(
+    var enabled: Boolean = false
+) {
+    val dependentModules = mutableListOf<Setting<*>>()
 }

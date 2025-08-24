@@ -16,6 +16,7 @@ class BooleanSetting (
     description: String? = null,
     visibility: Visibility = Visibility.VISIBLE,
 ): Setting<Boolean>(name, description, visibility) {
+    constructor(name: String, description: String, visibility: Visibility = Visibility.VISIBLE) : this(name, false, description, visibility)
 
     override var value: Boolean = default
         set(value) {

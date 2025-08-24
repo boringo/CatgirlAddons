@@ -2,13 +2,11 @@ package catgirlroutes.ui.misc.inventorybuttons
 
 import catgirlroutes.module.impl.misc.InventoryButtons.equipmentOverlay
 import catgirlroutes.utils.*
-import catgirlroutes.utils.ChatUtils.debugMessage
 import catgirlroutes.utils.NeuRepo.toStack
 import catgirlroutes.utils.render.HUDRenderUtils
 import net.minecraft.client.renderer.GlStateManager
 import net.minecraft.item.Item
 import net.minecraft.item.ItemStack
-import net.minecraft.nbt.JsonToNBT
 import java.awt.Color
 
 
@@ -21,7 +19,7 @@ class InventoryButton(
 ) {
 
     inline val isActive: Boolean
-        get() = if (isEquipment) equipmentOverlay.enabled else command.isNotEmpty()
+        get() = if (isEquipment) equipmentOverlay else command.isNotEmpty()
 
     inline val action: Unit
         get() = ChatUtils.commandAny(command)

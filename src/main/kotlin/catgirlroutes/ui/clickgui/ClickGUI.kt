@@ -3,6 +3,7 @@ package catgirlroutes.ui.clickgui
 import catgirlroutes.CatgirlRoutes
 import catgirlroutes.CatgirlRoutes.Companion.moduleConfig
 import catgirlroutes.module.Category
+import catgirlroutes.module.Module
 import catgirlroutes.module.impl.render.ClickGui
 import catgirlroutes.ui.clickgui.advanced.AdvancedMenu
 import catgirlroutes.ui.clickgui.elements.menu.ElementColor
@@ -89,7 +90,7 @@ class ClickGUI : GuiScreen() {
             p.drawScreen(scaledMouseX, scaledMouseY, partialTicks)
         }
 
-        if(ClickGui.showUsageInfo.enabled) {
+        if(ClickGui.showUsageInfo) {
             renderUsageInfo()
         }
 
@@ -118,7 +119,7 @@ class ClickGUI : GuiScreen() {
         )
 
         GL11.glScaled(2.0, 2.0, 2.0)
-        val titleWidth = FontUtil.getStringWidth(ClickGui.clientName.text)
+        val titleWidth = FontUtil.getStringWidth(ClickGui.guiName)
 
         GlStateManager.color(255f, 255f, 255f, 255f)
         CatgirlRoutes.mc.textureManager.bindTexture(LOGO)
@@ -129,7 +130,7 @@ class ClickGUI : GuiScreen() {
         )
 
         FontUtil.drawString(
-            ClickGui.clientName.text,
+            ClickGui.guiName,
             -titleWidth.toDouble() - 10.0 - logoSize,
             -FontUtil.fontHeight.toDouble() / 2.0 - 5.0 - logoSize / 2.0,
             ColorUtil.clickGUIColor.rgb
@@ -277,7 +278,7 @@ class ClickGUI : GuiScreen() {
     override fun initGui() {
         openedTime = System.currentTimeMillis()
         /** Start blur */
-        if (OpenGlHelper.shadersSupported && mc.renderViewEntity is EntityPlayer && ClickGui.blur.enabled) {
+        if (OpenGlHelper.shadersSupported && mc.renderViewEntity is EntityPlayer && ClickGui.blur) {
             mc.entityRenderer.stopUseShader()
             mc.entityRenderer.loadShader(ResourceLocation("shaders/post/blur.json"))
         }
@@ -340,6 +341,11 @@ class ClickGUI : GuiScreen() {
     fun getScaledMouseY(): Int {
         // maybe -1 or floor required here because of the inversion.
         return MathHelper.ceiling_double_int( (mc.displayHeight - Mouse.getY()) / CLICK_GUI_SCALE)
+    }
+
+    fun openModule(module: Module) {
+        val panel = panels.first { it.category == module.category }
+        panel.moduleButtons.first { it.module.name == module.name }.extended = true
     }
 
     companion object {

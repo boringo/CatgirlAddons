@@ -1,7 +1,6 @@
 package catgirlroutes.utils
 
 import catgirlroutes.CatgirlRoutes.Companion.mc
-import catgirlroutes.utils.Utils.noControlCodes
 import net.minecraft.scoreboard.ScorePlayerTeam
 
 fun cleanSB(scoreboard: String?): String {

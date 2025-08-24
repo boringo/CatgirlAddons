@@ -44,9 +44,9 @@ abstract class AdvancedElement<S: Setting<*>>(
         val color = if (listening) {
             Color(temp.red, temp.green, temp.blue, 200).rgb
         }else {
-            Color(ColorUtil.elementColor, true).darker().rgb
+            Color(ColorUtil.elementColor.rgb, true).darker().rgb
         }
-        Gui.drawRect(0, 0, width, height, Color(ColorUtil.bgColor, true).brighter().rgb)
+        Gui.drawRect(0, 0, width, height, Color(ColorUtil.bgColor.rgb, true).brighter().rgb)
         Gui.drawRect(0, 0, settingWidth, settingHeight, color)
 
         // Render the element.

@@ -24,24 +24,15 @@ object PearlClip : Module(
     category = Category.PLAYER,
     description = "Clips you down selected blocks using an ender pearl."
 ){
-    private val pearlClipDistance: NumberSetting = NumberSetting("Distance", 20.0, 0.0, 80.0, 1.0, description = "Distance to clip down")
-    private val pearlClipDelay: NumberSetting = NumberSetting("Delay", 0.0, 0.0, 10.0, 1.0, description = "Pearl clip delay", unit = "ms")
-    private val legacyDetection: BooleanSetting = BooleanSetting("Legacy detection")
-
-
-    init {
-        this.addSettings(
-            pearlClipDistance,
-            pearlClipDelay,
-            legacyDetection
-        )
-    }
+    private val pearlClipDistance by NumberSetting("Distance", 20.0, 0.0, 80.0, 1.0, description = "Distance to clip down")
+    private val pearlClipDelay by NumberSetting("Delay", 0.0, 0.0, 10.0, 1.0, description = "Pearl clip delay", unit = "ms")
+    private val legacyDetection by BooleanSetting("Legacy detection")
 
     private var active = false
     override fun onKeyBind() {
         if (!this.enabled) return
         modMessage("Pearl clipping!")
-        pearlClip((pearlClipDistance.value * -1))
+        pearlClip((pearlClipDistance * -1))
     }
 
     private var clipDepth: Double? = 0.0
@@ -51,7 +42,7 @@ object PearlClip : Module(
 
     fun pearlClip(depth: Double? = findDistanceToAirBlocks()) { // todo: move to ClipUtils
         if (!this.enabled) return
-        clipDepth = if (depth == 0.0 && !legacyDetection.value) findDistanceToAirBlocks() else if (depth == 0.0) findDistanceToAirBlocksLegacy() else depth; // fuck k*tlin
+        clipDepth = if (depth == 0.0 && !legacyDetection) findDistanceToAirBlocks() else if (depth == 0.0) findDistanceToAirBlocksLegacy() else depth; // fuck k*tlin
         if (clipDepth == null) return
 
         posX = mc.thePlayer.posX
@@ -63,7 +54,7 @@ object PearlClip : Module(
             modMessage("Pearl clipping ($depth)!")
             active = true
             rotate(mc.thePlayer.rotationYaw, 90F)
-            scheduleTask(pearlClipDelay.value.toInt()) {
+            scheduleTask(pearlClipDelay.toInt()) {
                 shouldClick = true
             }
         }

@@ -1,14 +1,13 @@
 package catgirlroutes.utils
 
 import catgirlroutes.CatgirlRoutes.Companion.scope
-import catgirlroutes.ui.clickgui.util.FontUtil.capitalizeOnlyFirst
-import catgirlroutes.utils.Utils.intToRoman
-import catgirlroutes.utils.Utils.noControlCodes
 import com.google.gson.Gson
 import com.google.gson.JsonObject
 import com.google.gson.annotations.SerializedName
-import com.google.gson.reflect.TypeToken
-import kotlinx.coroutines.runBlocking
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 import net.minecraft.init.Blocks
 import net.minecraft.item.ItemStack
 import net.minecraft.nbt.*
@@ -19,73 +18,172 @@ object NeuRepo {
     var mobs = mutableListOf<JsonObject>()
     var constants = mutableListOf<JsonObject>()
 
+    var reforges = listOf<ReforgeData>()
+    var essence = listOf<EssenceData>()
+    var gemstones = listOf<GemstoneData>()
+
+    private val gson = Gson()
+    private const val UPDATE_INTERVAL = 60 * 60 * 1000L
+
     init {
         updateRepo()
+        autoUpdate()
     }
 
-    private fun updateRepo() {
-        runBlocking(scope.coroutineContext) {
+    private fun autoUpdate() {
+        scope.launch {
+            while (true) {
+                delay(UPDATE_INTERVAL)
+                updateRepo(false)
+            }
+        }
+    }
+
+    private fun updateRepo(firstLoad: Boolean = true) {
+        scope.launch {
+            val startTime = System.currentTimeMillis()
+
             val result = downloadRepo()
-            result?.let {
-                val gson = Gson()
+            result?.let { (items, mobsList, constantsList) ->
+                processRepoItems(items)
+                mobs = mobsList.toMutableList()
+                constants = constantsList.toMutableList()
 
-                val repoItemLists: List<RepoItem> = gson.fromJson(gson.toJson(it.first), object : TypeToken<List<RepoItem>>() {}.type)
+                if (firstLoad) {
+                    reforges = processReforges(constants.getOrNull(27))
+                    essence = processEssence(constants.getOrNull(9))
+//                    gemstones = processGemstones(constants.getOrNull(13))
+                }
 
-                repoItems = repoItemLists.map { item ->
-                    // convert shitty neu skyblockID to normal format (WISDOM;2 -> ENCHANTMENT_WISDOM_2)
-                    if (item.skyblockID.contains(";") && item.id == "minecraft:enchanted_book") {
-                        val parts = item.skyblockID.split(";")
-                        if (parts.size == 2) {
-                            var enchantment = parts[0]
-                            val tier = parts[1]
-                            item.skyblockID = "ENCHANTMENT_${enchantment}_${tier}"
-                            // also change name of enchantments
-                            val colour = if (enchantment.startsWith("ULTIMATE")) "§9§d§l" else "§9"
-                            enchantment = if (enchantment.contains("WISE")) enchantment else enchantment.replace("ULTIMATE_", "")
-                            item.name = "$colour${enchantment.replace("_", " ").capitalizeWords()} ${intToRoman(tier.toInt())}"
+                val auctionJob = launch { updateItemsWithAuctionData() }
+                val bazaarJob = launch { updateItemsWithBazaarData() }
+                val npcJob = if (firstLoad) launch { updateItemsWithNpcData() } else null
+
+                auctionJob.join()
+                bazaarJob.join()
+                npcJob?.join()
+
+                val totalTime = System.currentTimeMillis() - startTime
+                println("Loaded NeuRepo in ${totalTime}ms (${repoItems.size} items)")
+            }
+        }
+    }
+
+    private suspend fun processRepoItems(items: List<JsonObject>) = withContext(Dispatchers.IO) {
+        repoItems = items.mapNotNull { itemJson ->
+            runCatching {
+                gson.fromJson(itemJson, RepoItem::class.java).apply {
+                    if (skyblockID.contains(";") && id == "minecraft:enchanted_book") {
+                        skyblockID.split(";").takeIf { it.size == 2 }?.let { (enchantment, tier) ->
+                            skyblockID = "ENCHANTMENT_${enchantment}_$tier"
+                            name = enchantment.formatEnchantment(tier.toInt())
                         }
                     }
-                    item
-                }.toMutableList()
-
-                mobs = it.second.toMutableList()
-                constants = it.third.toMutableList()
-            }
-            updateItemsWithAuctionData()
-            updateItemsWithBazaarData()
-            println("Successfully loaded NeuRepo")
-        }
+                }
+            }.getOrNull()
+        }.toMutableList()
     }
 
-    private fun String.capitalizeWords(): String = split(" ").joinToString(" ") { it.capitalizeOnlyFirst() }
+    private suspend fun processReforges(reforgeJson: JsonObject?): List<ReforgeData> = withContext(Dispatchers.IO) {
+        reforgeJson?.entrySet()?.mapNotNull { (key, value) ->
+            val data = value.asJsonObject
+            ReforgeData(
+                key,
+                data["reforgeName"].asString,
+                data["reforgeCosts"].asJsonObject.entrySet()
+                    .associate { (rarity, cost) -> rarity to cost.asDouble }
+            )
+        } ?: emptyList()
+    }
 
-    private fun updateItemsWithAuctionData() = runBlocking {
+    private suspend fun processEssence(essenceJson: JsonObject?): List<EssenceData> =
+        withContext(Dispatchers.IO) {
+            essenceJson?.entrySet()?.mapNotNull { (key, value) ->
+                val data = value.asJsonObject ?: return@mapNotNull null
+                val essenceType = data["type"]?.asString?.uppercase() ?: return@mapNotNull null
+                val itemsData = data["items"]?.asJsonObject
+
+                val upgrades = (1..15).mapNotNull { star ->
+                    val cost = data[star.toString()]?.asInt ?: return@mapNotNull null
+
+                    val items = itemsData?.get(star.toString())
+                        ?.asJsonArray
+                        ?.mapNotNull { element ->
+                            val parts = element.asString.split(":")
+                            if (parts.size == 2) {
+                                val id = parts[0]
+                                val amount = parts[1].toIntOrNull()
+                                if (amount != null) UpgradeItem(id, amount) else null
+                            } else null
+                        } ?: emptyList()
+
+                    EssenceUpgrade(star, cost, items)
+                }
+
+                EssenceData(key, "ESSENCE_$essenceType", upgrades)
+            } ?: emptyList()
+        }
+
+    private suspend fun updateItemsWithAuctionData() {
         val auctionDataJson = getDataFromServer("https://moulberry.codes/lowestbin.json")
         if (auctionDataJson.isNotEmpty()) {
-            val auctionMap = Gson().fromJson(auctionDataJson, JsonObject::class.java)
-                .entrySet().associate { it.key to it.value.asDouble }
+            val auctionMap = withContext(Dispatchers.IO) {
+                gson.fromJson(auctionDataJson, JsonObject::class.java)
+                    .entrySet().associate { it.key to it.value.asDouble }
+            }
 
-            repoItems.forEach { item ->
-                val price = auctionMap[item.skyblockID] ?: 0.0
-                item.auction = price > 0.0
-                item.price = price
+            val itemMap = repoItems.associateBy { it.skyblockID }
+
+            auctionMap.forEach { (id, price) ->
+                itemMap[id]?.let { item ->
+                    item.auction = price > 0.0
+                    item.price = price
+                }
             }
         }
     }
 
-    private fun updateItemsWithBazaarData() = runBlocking {
+    private suspend fun updateItemsWithBazaarData() {
         val bazaarDataJson = getDataFromServer("https://api.hypixel.net/v2/skyblock/bazaar")
-        if (bazaarDataJson.isNotEmpty()) {
-            val products = Gson().fromJson(bazaarDataJson, JsonObject::class.java)
-                .getAsJsonObject("products") ?: return@runBlocking
+        if (bazaarDataJson.isEmpty()) return
 
-            repoItems.forEach { item ->
-                val price = products[item.skyblockID]?.asJsonObject
-                    ?.getAsJsonObject("quick_status")?.get("buyPrice")?.asDouble ?: 0.0
-                if (price > 0.0) {
+        val jsonObject = withContext(Dispatchers.IO) {
+            gson.fromJson(bazaarDataJson, JsonObject::class.java)
+        }
+
+        val products = jsonObject.getAsJsonObject("products") ?: return
+
+        val itemMap = repoItems.associateBy { it.skyblockID }
+
+        products.entrySet().forEach { (id, product) ->
+            product.asJsonObject?.getAsJsonObject("quick_status")?.get("buyPrice")?.asDouble?.let { price ->
+                itemMap[id]?.let { item ->
                     item.bazaar = true
                     item.price = price
                 }
+            }
+        }
+    }
+
+    private suspend fun updateItemsWithNpcData() {
+        val itemDataJson = getDataFromServer("https://api.hypixel.net/resources/skyblock/items")
+        if (itemDataJson.isEmpty()) return
+
+        val jsonObject = withContext(Dispatchers.IO) {
+            gson.fromJson(itemDataJson, JsonObject::class.java)
+        }
+
+        val items = jsonObject.getAsJsonArray("items") ?: return
+
+        val itemMap = repoItems.associateBy { it.skyblockID }
+
+        val itemMapById = items.associate {
+            it.asJsonObject.get("id").asString to it.asJsonObject
+        }
+
+        itemMapById.forEach { (id, itemObj) ->
+            itemObj.get("npc_sell_price")?.asDouble?.let { price ->
+                itemMap[id]?.npcPrice = price
             }
         }
     }
@@ -94,10 +192,26 @@ object NeuRepo {
 
     fun getItemFromName(name: String, contains: Boolean = true): RepoItem? {
         return if (contains) {
-            repoItems.find { it.name.noControlCodes.contains(name) }
+            repoItems.find { it.name.contains(name) || it.name.noControlCodes.contains(name) }
         } else {
-            repoItems.find { it.name == name }
+            repoItems.find { it.name == name || it.name.noControlCodes == name || it.name.noControlCodes.removePrefix("[Lvl {LVL}] ") == name }
         }
+    }
+
+    fun getReforgeFromID(skyblockID: String): ReforgeData? {
+        return reforges.find { it.skyblockID == skyblockID }
+    }
+
+    fun getReforgeFromName(name: String): ReforgeData? {
+        return reforges.find { it.name.equals(name, true) || it.name.noControlCodes.equals(name, true) }
+    }
+
+    fun getEssenceDataFromID(skyblockID: String): EssenceData? {
+        return essence.find { it.skyblockID == skyblockID }
+    }
+
+    fun getGemstoneData(skyblockID: String): GemstoneData? {
+        return gemstones.find { it.skyblockID == skyblockID }
     }
 
     // modified schizo shit from neu
@@ -162,5 +276,44 @@ data class RepoItem(
     @SerializedName("damage") val damage: Int,
     var auction: Boolean = false,
     var bazaar: Boolean = false,
-    var price: Double = 0.0
+    var price: Double = 0.0,
+    var npcPrice: Double = 0.0
+)
+
+data class ReforgeData(
+    @SerializedName("internalname") val skyblockID: String,
+    val name: String,
+    val costs: Map<String, Double>
+)
+
+data class EssenceUpgrade(
+    val star: Int,
+    val cost: Int,
+    val items: List<UpgradeItem>
+)
+
+data class UpgradeItem(
+    val skyblockID: String,
+    val amount: Int
+)
+
+data class EssenceData(
+    val skyblockID: String,
+    val essenceID: String,
+    val upgrades: List<EssenceUpgrade>
+)
+
+data class GemstoneCost( // idk
+    val skyblockID: String,
+    val amount: Int
+)
+
+data class GemstoneSlot(
+    val gemstoneType: String,
+    val slotIndex: Int
+)
+
+data class GemstoneData(
+    @SerializedName("internalname") val skyblockID: String,
+    val slots: Map<GemstoneSlot, List<GemstoneCost>>
 )

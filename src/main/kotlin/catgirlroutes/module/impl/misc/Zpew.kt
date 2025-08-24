@@ -1,6 +1,5 @@
 package catgirlroutes.module.impl.misc
 
-//import catgirlroutes.utils.EtherWarpHelper
 import catgirlroutes.CatgirlRoutes.Companion.mc
 import catgirlroutes.CatgirlRoutes.Companion.onHypixel
 import catgirlroutes.events.impl.PacketReceiveEvent
@@ -10,18 +9,18 @@ import catgirlroutes.module.Module
 import catgirlroutes.module.settings.Setting.Companion.withDependency
 import catgirlroutes.module.settings.impl.BooleanSetting
 import catgirlroutes.module.settings.impl.NumberSetting
-import catgirlroutes.module.settings.impl.StringSelectorSetting
+import catgirlroutes.module.settings.impl.SelectorSetting
 import catgirlroutes.module.settings.impl.StringSetting
 import catgirlroutes.utils.ChatUtils.chatMessage
 import catgirlroutes.utils.ChatUtils.debugMessage
 import catgirlroutes.utils.ClientListener.scheduleTask
+import catgirlroutes.utils.EtherWarpHelper
 import catgirlroutes.utils.Island
 import catgirlroutes.utils.LocationManager
 import catgirlroutes.utils.LocationManager.inSkyblock
 import catgirlroutes.utils.PlayerUtils.playLoudSound
-import catgirlroutes.utils.Utils.skyblockID
+import catgirlroutes.utils.skyblockID
 import catgirlroutes.utils.dungeon.DungeonUtils.inBoss
-import me.odinmain.utils.skyblock.EtherWarpHelper
 import net.minecraft.block.Block
 import net.minecraft.init.Blocks
 import net.minecraft.network.play.client.C03PacketPlayer
@@ -34,12 +33,12 @@ import net.minecraft.util.Vec3
 import net.minecraftforge.fml.common.eventhandler.SubscribeEvent
 
 object Zpew : Module(
-    name = "Zpew",
-    category = Category.MISC
+    "Zpew",
+    Category.MISC
 ) {
 
-    private val zpewOffset: BooleanSetting = BooleanSetting("Offset", false, "Offsets your position onto the block instead of 0.05 blocks above it")
-    private val dingdingding: BooleanSetting = BooleanSetting("dingdingding", false)
+    private val zpewOffset by BooleanSetting("Offset", false, "Offsets your position onto the block instead of 0.05 blocks above it")
+    private val dingdingding by BooleanSetting("dingdingding", false)
 
     private val soundOptions = arrayListOf(
         "note.pling",
@@ -50,20 +49,16 @@ object Zpew : Module(
         "mob.guardian.land.hit",
         "Custom"
     )
-    private val soundSelector = StringSelectorSetting("Sound", soundOptions[0], soundOptions, "Sound Selection").withDependency { dingdingding.enabled }
-    private val customSound: StringSetting = StringSetting("Custom Sound", soundOptions[0], description = "Name of a custom sound to play. This is used when Custom is selected in the Sound setting.").withDependency { dingdingding.enabled && soundSelector.selected == "Custom" }
-    private val pitch: NumberSetting = NumberSetting("Pitch", 1.0, 0.1, 2.0, 0.1).withDependency { dingdingding.enabled }
-
-    init {
-        addSettings(zpewOffset, dingdingding, soundSelector, customSound, pitch)
-    }
+    private val soundSelector by SelectorSetting("Sound", soundOptions[0], soundOptions, "Sound Selection").withDependency { dingdingding }
+    private val customSound by StringSetting("Custom Sound", soundOptions[0], description = "Name of a custom sound to play. This is used when Custom is selected in the Sound setting.").withDependency { dingdingding && soundSelector.selected == "Custom" }
+    private val pitch by NumberSetting("Pitch", 1.0, 0.1, 2.0, 0.1).withDependency { dingdingding }
 
     private const val FAILWATCHPERIOD: Int = 20
     private const val MAXFAILSPERFAILPERIOD: Int = 3
     private const val MAXQUEUEDPACKETS: Int = 5
 
     private var updatePosition = true
-    val recentlySentC06s = mutableListOf<SentC06>()
+    private val recentlySentC06s = mutableListOf<SentC06>()
     private val recentFails = mutableListOf<Long>()
     private val blackListedBlocks = arrayListOf(Blocks.chest, Blocks.trapped_chest, Blocks.enchanting_table, Blocks.hopper, Blocks.furnace, Blocks.crafting_table)
 
@@ -85,29 +80,16 @@ object Zpew : Module(
     }
 
     private fun doZeroPingEtherWarp() {
-        val etherBlock = EtherWarpHelper.getEtherPos( // odin
+        val etherBlock = EtherWarpHelper.getEtherPos(
             Vec3(lastX, lastY, lastZ),
             lastYaw,
             lastPitch,
             57.0
         )
 
-//        val etherBlock = catgirlroutes.utils.EtherWarpHelper.getEtherPos( // 1 to 1 skid
-//            Vec3(lastX, lastY, lastZ),
-//            lastYaw,
-//            lastPitch,
-//            57.0
-//        )
-
         if (!etherBlock.succeeded) return
 
         val pos = etherBlock.pos!!
-
-//        val (succeeded, etherBlock) = RaytraceUtils.getEtherwarpBlockSuccess(lastPitch, lastYaw, Vec3(lastX, lastY, lastZ), 57.0) // from creampirog
-//
-//        if (!succeeded) return
-//
-//        val pos = BlockPos(etherBlock)
 
         val x: Double = pos.x.toDouble() + 0.5
         var y: Double = pos.y.toDouble() + 1.05
@@ -127,11 +109,11 @@ object Zpew : Module(
 
         recentlySentC06s.add(SentC06(yaw, pitch, x, y, z, System.currentTimeMillis()))
 
-        if (dingdingding.enabled) playLoudSound(getSound(), 100f, Zpew.pitch.value.toFloat())
+        if (dingdingding) playLoudSound(getSound(), 100f, Zpew.pitch.toFloat())
 
         scheduleTask(0) {
             mc.netHandler.addToSendQueue(C06PacketPlayerPosLook(x, y, z, yaw, pitch, mc.thePlayer.onGround))
-            if (zpewOffset.value) y -= 0.05
+            if (zpewOffset) y -= 0.05
             mc.thePlayer.setPosition(x, y, z)
             mc.thePlayer.setVelocity(0.0, 0.0, 0.0)
             updatePosition = true
@@ -227,15 +209,9 @@ object Zpew : Module(
             return
         }
 
-        //debugMessage("newYaw: $newYaw")
-        //debugMessage("newPitch: $newPitch")
-        //debugMessage("newX: $newX")
-        //debugMessage("newY: $newY")
-        //debugMessage("newZ: $newZ")
         debugMessage("receivedS08($newX, $newY, $newZ)")
         debugMessage("sentC06(${sentC06.x}, ${sentC06.y}, ${sentC06.z})")
         debugMessage(recentlySentC06s)
-        //debugMessage(sentC06)
         debugMessage("Failed")
 
         recentFails.add(System.currentTimeMillis())
@@ -245,7 +221,7 @@ object Zpew : Module(
     @SubscribeEvent
     fun onS29(event: PacketReceiveEvent) {
         if (event.packet !is S29PacketSoundEffect) return
-        val packet: S29PacketSoundEffect = event.packet as S29PacketSoundEffect // I don't think it should be like that in kt lol
+        val packet: S29PacketSoundEffect = event.packet
         if (packet.soundName != "mob.enderdragon.hit" || packet.volume != 1f || packet.pitch != 0.53968257f || !checkAllowedFails()) return
         event.isCanceled = true
     }
@@ -257,7 +233,7 @@ object Zpew : Module(
         return if (soundSelector.index < soundSelector.options.size - 1)
             soundSelector.selected
         else
-            customSound.text
+            customSound
     }
 
     data class SentC06(

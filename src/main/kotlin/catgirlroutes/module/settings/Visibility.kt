@@ -23,9 +23,3 @@ enum class Visibility {
     val visibleInClickGui: Boolean
         get() = this.ordinal and 0b01 > 0
 }
-
-/*
-TODO
- Make it more customisable if I can be bothered
- example: if setting is disabled, hide. if enabled - show
- */

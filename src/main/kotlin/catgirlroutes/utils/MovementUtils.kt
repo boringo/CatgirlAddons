@@ -1,44 +1,50 @@
 package catgirlroutes.utils
 
 import catgirlroutes.CatgirlRoutes.Companion.mc
-import catgirlroutes.commands.commodore
+import catgirlroutes.utils.ChatUtils.debugMessage
 import catgirlroutes.utils.ClientListener.scheduleTask
-import catgirlroutes.utils.MovementUtils.addBlock
-import catgirlroutes.utils.MovementUtils.clearBlocks
-import catgirlroutes.utils.MovementUtils.moveToBlock
 import catgirlroutes.utils.rotation.RotationUtils.getYawAndPitch
 import net.minecraft.block.Block
 import net.minecraft.client.settings.GameSettings.isKeyDown
 import net.minecraft.client.settings.KeyBinding
 import net.minecraft.util.BlockPos
+import net.minecraft.util.MathHelper
 import net.minecraft.util.Vec3
 import net.minecraftforge.client.event.RenderWorldLastEvent
+import net.minecraftforge.event.entity.living.LivingEvent
 import net.minecraftforge.fml.common.eventhandler.SubscribeEvent
+import net.minecraftforge.fml.common.gameevent.InputEvent.KeyInputEvent
 import net.minecraftforge.fml.common.gameevent.TickEvent
+import net.minecraftforge.fml.common.gameevent.TickEvent.ClientTickEvent
 import kotlin.math.abs
 import kotlin.math.cos
 import kotlin.math.sin
 
-object MovementUtils {
+object MovementUtils { // todo cleanup, add motion
+
+    private val FORWARD = mc.gameSettings.keyBindForward
+    private val BACK = mc.gameSettings.keyBindBack
+    private val RIGHT = mc.gameSettings.keyBindRight
+    private val LEFT = mc.gameSettings.keyBindLeft
+
+    private val JUMP = mc.gameSettings.keyBindJump
+    private val SNEAK = mc.gameSettings.keyBindSneak
+    private val SPRINT = mc.gameSettings.keyBindSprint
+
     fun setKey(key: String, down: Boolean) {
         when(key) {
-            "w" -> KeyBinding.setKeyBindState(mc.gameSettings.keyBindForward.keyCode, down)
-            "a" -> KeyBinding.setKeyBindState(mc.gameSettings.keyBindLeft.keyCode, down)
-            "s" -> KeyBinding.setKeyBindState(mc.gameSettings.keyBindBack.keyCode, down)
-            "d" -> KeyBinding.setKeyBindState(mc.gameSettings.keyBindRight.keyCode, down)
-            "jump" -> KeyBinding.setKeyBindState(mc.gameSettings.keyBindJump.keyCode, down)
-            "shift" -> KeyBinding.setKeyBindState(mc.gameSettings.keyBindSneak.keyCode, down)
-            "sprint" -> KeyBinding.setKeyBindState(mc.gameSettings.keyBindSprint.keyCode, down)
+            "w" -> KeyBinding.setKeyBindState(FORWARD.keyCode, down)
+            "a" -> KeyBinding.setKeyBindState(LEFT.keyCode, down)
+            "s" -> KeyBinding.setKeyBindState(BACK.keyCode, down)
+            "d" -> KeyBinding.setKeyBindState(RIGHT.keyCode, down)
+            "jump" -> KeyBinding.setKeyBindState(JUMP.keyCode, down)
+            "shift" -> KeyBinding.setKeyBindState(SNEAK.keyCode, down)
+            "sprint" -> KeyBinding.setKeyBindState(SPRINT.keyCode, down)
         }
     }
 
     fun movementKeysDown(): Boolean {
-        if (mc.gameSettings.keyBindForward.isKeyDown) return true
-        if (mc.gameSettings.keyBindLeft.isKeyDown) return true
-        if (mc.gameSettings.keyBindRight.isKeyDown) return true
-        if (mc.gameSettings.keyBindBack.isKeyDown) return true
-        if (mc.gameSettings.keyBindJump.isKeyDown) return true
-        return false
+        return FORWARD.isKeyDown || LEFT.isKeyDown || RIGHT.isKeyDown || BACK.isKeyDown || SNEAK.isKeyDown
     }
 
     fun stopVelo() {
@@ -46,6 +52,8 @@ object MovementUtils {
     }
 
     fun stopMovement() {
+        dir = null
+        jumping = false
         setKey("w", false)
         setKey("a", false)
         setKey("s", false)
@@ -60,8 +68,14 @@ object MovementUtils {
     }
 
     fun jump() {
-        scheduleTask(0) {setKey("jump", true)}
-        scheduleTask(2) {setKey("jump", false)}
+//        scheduleTask(0) {setKey("jump", true)} // why did watr think it was a good idea
+//        scheduleTask(2) {setKey("jump", false)}
+        if (mc.thePlayer.onGround) mc.thePlayer.jump()
+    }
+
+    fun pressKey(keyCode: Int, delay: Int = 1) {
+        KeyBinding.setKeyBindState(keyCode, true)
+        scheduleTask(delay) { KeyBinding.setKeyBindState(keyCode, false) }
     }
 
     private var shouldEdge = false
@@ -81,6 +95,17 @@ object MovementUtils {
         }
     }
 
+    @SubscribeEvent
+    fun stupid(event: KeyInputEvent) {
+        if (movementKeysDown()) {
+            if (dir != null) stopMovement()
+            if (targetBlocks.isNotEmpty()) {
+                stopMovement()
+                targetBlocks.removeFirst()
+            }
+        }
+    }
+
     var targetBlocks = arrayListOf<Vec3>()
 
     fun clearBlocks() {
@@ -95,11 +120,100 @@ object MovementUtils {
         targetBlocks.add(Vec3(x, 0.0, z))
     }
 
-    var airTicks = 0
-    var lastX = 0.0
-    var lastZ = 0.0
+    private var dir: Float? = null
+    private var jumping = false
+    private var airTicks = 0
 
     @SubscribeEvent
+    fun onLivingJump(event: LivingEvent.LivingJumpEvent) {
+        if (event.entity.worldObj.isRemote) {
+            jumping = true
+            debugMessage("jump living")
+        }
+    }
+
+    /**
+     * Player velocity calculations from sy?
+     * @author sapv5678
+     */
+    @SubscribeEvent
+    fun onClientTick(event: ClientTickEvent) {
+        if (event.phase != TickEvent.Phase.START || mc.thePlayer == null || dir == null) return
+        if (mc.thePlayer.onGround) {
+            airTicks = 0
+        } else {
+            ++airTicks
+        }
+
+        if (mc.thePlayer.isInWater || mc.thePlayer.isInLava) return
+
+        val sprintMultiplier = 1.3
+        var speed = mc.thePlayer.aiMoveSpeed.toDouble()
+        if (mc.thePlayer.isSprinting) {
+            speed /= sprintMultiplier
+        }
+
+        if (airTicks < 1) {
+            val rad = dir!! * Math.PI / 180
+            var speedMultiplier = 2.806
+            if (jumping) {
+                debugMessage("we jumping")
+                jumping = false
+                speedMultiplier += 2
+                speedMultiplier *= 1.25
+            }
+            mc.thePlayer.motionX = -sin(rad) * speed * speedMultiplier
+            mc.thePlayer.motionZ = cos(rad) * speed * speedMultiplier
+            return
+        }
+
+        val movementFactor = if (mc.thePlayer.onGround || (airTicks == 1 && mc.thePlayer.motionY < 0)) {
+            speed * sprintMultiplier
+        } else {
+            0.02 * sprintMultiplier
+        }
+
+        val sinYaw = MathHelper.sin((dir!! * Math.PI / 180).toFloat())
+        val cosYaw = MathHelper.cos((dir!! * Math.PI / 180).toFloat())
+        mc.thePlayer.motionX -= movementFactor * sinYaw
+        mc.thePlayer.motionZ += movementFactor * cosYaw
+    }
+
+    fun motion(y: Float) {
+        dir = y
+        airTicks = 0
+    }
+
+    private fun simulateMovementKeys(targetYaw: Float, playerYaw: Float) {
+
+        val radTarget = Math.toRadians(targetYaw.toDouble())
+        val xTarget = -sin(radTarget)
+        val zTarget =  cos(radTarget)
+
+        val radPlayerYaw = Math.toRadians(playerYaw.toDouble())
+        val playerForwardX = -sin(radPlayerYaw)
+        val playerForwardZ = cos(radPlayerYaw)
+        val playerRightX = cos(radPlayerYaw)
+        val playerRightZ = sin(radPlayerYaw)
+
+        val forward = xTarget * playerForwardX + zTarget * playerForwardZ
+        val strafe = xTarget * playerRightX + zTarget * playerRightZ
+
+        val pressForward = forward > 0.2
+        val pressBack = forward < -0.2
+        val pressLeft = strafe > 0.2
+        val pressRight = strafe < -0.2
+
+        setKey("w", pressForward)
+        setKey("s", pressBack)
+        setKey("d", pressRight)
+        setKey("a", pressLeft)
+    }
+
+    private var lastX = 0.0
+    private var lastZ = 0.0
+
+    @SubscribeEvent // todo replace with sapv's calc
     fun onTick(event: TickEvent.ClientTickEvent) {
         if (event.phase != TickEvent.Phase.START) return
         if (targetBlocks.isEmpty()) return
@@ -149,28 +263,3 @@ object MovementUtils {
     }
 }
 
-val thisshit = commodore("mottar") { //motiontarget
-    literal("set").runs{
-            x: Double, z: Double ->
-        moveToBlock(x, z)
-    }
-    literal("add").runs {
-            x: Double, z: Double ->
-        addBlock(x, z)
-    }
-    literal("stop").runs{
-        clearBlocks()
-    }
-    literal("test").runs{
-        addBlock(145.5, 160.5)
-        addBlock(145.5, 161.5)
-        addBlock(144.5, 161.5)
-        addBlock(143.5, 161.5)
-        addBlock(143.5, 162.5)
-        addBlock(143.5, 163.5)
-        addBlock(144.5, 163.5)
-        addBlock(145.5, 163.5)
-        addBlock(145.5, 164.5)
-        addBlock(145.5, 165.5)
-    }
-}

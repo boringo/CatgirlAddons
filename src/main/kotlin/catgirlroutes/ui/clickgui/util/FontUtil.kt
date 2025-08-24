@@ -3,7 +3,7 @@ package catgirlroutes.ui.clickgui.util
 import catgirlroutes.CatgirlRoutes.Companion.RESOURCE_DOMAIN
 import catgirlroutes.CatgirlRoutes.Companion.mc
 import catgirlroutes.module.impl.render.ClickGui
-import catgirlroutes.utils.Utils.noControlCodes
+import catgirlroutes.utils.noControlCodes
 import catgirlroutes.utils.render.font.CFontRenderer
 import net.minecraft.client.gui.FontRenderer
 import net.minecraft.client.renderer.GlStateManager
@@ -19,12 +19,12 @@ import java.util.*
  * @author Aton
  */
 object FontUtil {
-    private lateinit var fontRenderer: FontRenderer
+    private var fontRenderer: FontRenderer = mc.fontRendererObj
     private lateinit var customFontRenderer: CFontRenderer
 
     val fontHeight: Int get() = fontRenderer.FONT_HEIGHT
 
-    private val font: Boolean get() = ClickGui.customFont.enabled
+    private val font: Boolean get() = ClickGui.customFont
 
     fun setupFontUtils() {
         val stream = mc.resourceManager.getResource(ResourceLocation(RESOURCE_DOMAIN, "Roboto-Regular.ttf")).inputStream
@@ -73,10 +73,26 @@ object FontUtil {
         return dy
     }
 
-    fun getScaledFontHeight(scale: Double = 1.0): Int = (fontHeight * scale).toInt()
+    fun getFontHeight(scale: Double = 1.0): Int = (fontHeight * scale).toInt()
 
-    fun drawString(text: String, x: Double, y: Double, color: Int = ColorUtil.textcolor, customFont: Boolean = font, scale: Double = 1.0) =
-        drawText(text, x, y, color, customFont, scale)
+    fun drawAlignedString(text: String, x: Double, y: Double, alignment: Alignment = Alignment.LEFT, vAlignment: VAlignment = VAlignment.CENTRE, color: Int = ColorUtil.textcolor, customFont: Boolean = font, scale: Double = 1.0, shadow: Boolean = false) {
+        val posX = when (alignment) {
+            Alignment.LEFT -> x
+            Alignment.CENTRE -> x - (getStringWidth(text, customFont, scale) * scale / 2.0)
+            Alignment.RIGHT -> x - getStringWidth(text, customFont, scale)
+        }
+
+        val posY = when (vAlignment) {
+            VAlignment.TOP -> y
+            VAlignment.CENTRE -> y - (getFontHeight(scale) / 2.0)
+            VAlignment.BOTTOM -> y - getFontHeight(scale)
+        }
+
+        drawText(text, posX, posY, color, customFont, scale, shadow)
+    }
+
+    fun drawString(text: String, x: Double, y: Double, color: Int = ColorUtil.textcolor, customFont: Boolean = font, scale: Double = 1.0, shadow: Boolean = false) =
+        drawText(text, x, y, color, customFont, scale, shadow)
 
     fun drawString(text: String, x: Int, y: Int, color: Int = ColorUtil.textcolor, customFont: Boolean = font, scale: Double = 1.0) =
         drawString(text, x.toDouble(), y.toDouble(), color, customFont, scale)
@@ -91,13 +107,13 @@ object FontUtil {
         drawText(text, x - getStringWidth(text, customFont) * scale / 2, y, color, customFont, scale, true)
 
     fun drawTotalCenteredString(text: String, x: Double, y: Double, color: Int = ColorUtil.textcolor, customFont: Boolean = font, scale: Double = 1.0) =
-        drawText(text, x - getStringWidth(text, customFont) * scale / 2, y - getScaledFontHeight(scale) / 2, color, customFont, scale)
+        drawText(text, x - getStringWidth(text, customFont) * scale / 2, y - getFontHeight(scale) / 2, color, customFont, scale)
 
     fun drawTotalCenteredStringWithShadow(text: String, x: Double, y: Double, color: Int = ColorUtil.textcolor, customFont: Boolean = font, scale: Double = 1.0) =
-        drawText(text, x - getStringWidth(text, customFont) * scale / 2, y - getScaledFontHeight(scale) / 2, color, customFont, scale, true)
+        drawText(text, x - getStringWidth(text, customFont) * scale / 2, y - getFontHeight(scale) / 2, color, customFont, scale, true)
 
     fun drawWrappedText(text: String, x: Double, y: Double, width: Double, color: Int = ColorUtil.textcolor, customFont: Boolean = font, scale: Double = 1.0) =
-        wrapText(text, width, customFont, scale).forEachIndexed { i, line -> drawText(line, x, y + getScaledFontHeight(scale) * i, color, customFont, scale) }
+        wrapText(text, width, customFont, scale).forEachIndexed { i, line -> drawText(line, x, y + getFontHeight(scale) * i, color, customFont, scale) }
 
     fun drawWrappedText(text: String, x: Int, y: Int, width: Int, color: Int = ColorUtil.textcolor, customFont: Boolean = font, scale: Double = 1.0) =
         drawWrappedText(text, x.toDouble(), y.toDouble(), width.toDouble(), color, customFont, scale)
@@ -120,6 +136,18 @@ object FontUtil {
         return lines
     }
 
+    fun getTruncatedText(text: String, width: Double, ellipsis: String = "..."): String {
+        return if (text.getWidth() > width) {
+            var truncated = text
+            while(truncated.getWidth() + ellipsis.getWidth() > width && truncated.isNotEmpty()) {
+                truncated = truncated.dropLast(1)
+            }
+            "$truncated$ellipsis"
+        } else {
+            text
+        }
+    }
+
     /**
      * Returns a copy of the String where the first letter is capitalized.
      */
@@ -129,4 +157,22 @@ object FontUtil {
      * Returns a copy of the String where the only first letter is capitalized.
      */
     fun String.capitalizeOnlyFirst(): String = this.substring(0, 1).uppercase(Locale.getDefault()) + this.substring(1, this.length).lowercase()
+
+    fun String.capitalizeWords(): String = split(" ").joinToString(" ") { it.capitalizeOnlyFirst() }
+
+    fun String.getWidth(): Double = getStringWidthDouble(this)
+
+    fun Char.getWidth(): Double = this.toString().getWidth()
+
+    fun String.trimToWidth(width: Number): String = fontRenderer.trimStringToWidth(this, width.toInt())
+
+    fun String.ellipsize(width: Number, ellipsis: String = ".."): String = getTruncatedText(this, width.toDouble(), ellipsis)
+}
+
+enum class Alignment {
+    LEFT, CENTRE, RIGHT
+}
+
+enum class VAlignment {
+    TOP, CENTRE, BOTTOM
 }

@@ -3,7 +3,7 @@ package catgirlroutes.module.impl.misc
 import catgirlroutes.module.Category
 import catgirlroutes.module.Module
 import catgirlroutes.utils.ChatUtils
-import catgirlroutes.utils.ChatUtils.stripControlCodes
+import catgirlroutes.utils.noControlCodes
 import net.minecraftforge.client.event.ClientChatReceivedEvent
 import net.minecraftforge.fml.common.eventhandler.SubscribeEvent
 
@@ -11,12 +11,12 @@ import net.minecraftforge.fml.common.eventhandler.SubscribeEvent
 object AutoDialogue : Module(
     "Auto Dialogue",
     Category.MISC,
-    "Automatically continues dialogue with NPCs"
+    "Automatically continues dialogues with NPCs."
 ) {
     @SubscribeEvent
     fun onChat(event: ClientChatReceivedEvent) {
         if (event.message == null || event.type == 2.toByte()) return
-        if (!event.message.unformattedText.stripControlCodes().startsWith("Select an option: ")) return
+        if (!event.message.unformattedText.noControlCodes.startsWith("Select an option: ")) return
         val command = event.message.siblings.getOrNull(0)?.chatStyle?.chatClickEvent?.value ?: return
         ChatUtils.commandAny(command)
     }

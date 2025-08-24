@@ -1,58 +1,54 @@
 package catgirlroutes.module.impl.misc
 
+import catgirlroutes.events.impl.ChatPacket
 import catgirlroutes.module.Category
 import catgirlroutes.module.Module
 import catgirlroutes.module.settings.Setting.Companion.withDependency
 import catgirlroutes.module.settings.impl.DropdownSetting
-import catgirlroutes.module.settings.impl.StringSelectorSetting
+import catgirlroutes.module.settings.impl.SelectorSetting
 import catgirlroutes.module.settings.impl.StringSetting
 import catgirlroutes.utils.ChatUtils
 import catgirlroutes.utils.ChatUtils.modMessage
 import com.google.gson.JsonParser
 import kotlinx.coroutines.*
-import net.minecraft.util.StringUtils
-import net.minecraftforge.client.event.ClientChatReceivedEvent
 import net.minecraftforge.fml.common.eventhandler.SubscribeEvent
 import org.apache.http.client.methods.HttpGet
 import org.apache.http.impl.client.HttpClients
 import org.apache.http.util.EntityUtils
 
-object AutoKick: Module(
-    "Auto kick",
+object AutoKick: Module( // todo recode
+    "Auto Kick",
     Category.MISC
 ){
 
-    private val nameInput = StringSetting("Name", "catgirlsave")
+    private val nameInput by StringSetting("Name", "catgirlsave")
 
-    private val floorSelector = StringSelectorSetting("Floor", "F7", arrayListOf("F7", "M4", "M5", "M6", "M7"))
+    private val floorSelector by SelectorSetting("Floor", "F7", arrayListOf("F7", "M4", "M5", "M6", "M7"))
 
-    private val pbDropdown = DropdownSetting("PBs")
-    private val f7Pb = StringSetting("F7 PB", "5:00").withDependency(pbDropdown)
-    private val m4Pb = StringSetting("M4 PB", "5:00").withDependency(pbDropdown)
-    private val m5Pb = StringSetting("M5 PB", "5:00").withDependency(pbDropdown)
-    private val m6Pb = StringSetting("M6 PB", "5:00").withDependency(pbDropdown)
-    private val m7Pb = StringSetting("M7 PB", "5:00").withDependency(pbDropdown)
+    private val pbDropdown by DropdownSetting("PBs")
+    private val f7Pb by StringSetting("F7 PB", "5:00").withDependency(pbDropdown)
+    private val m4Pb by StringSetting("M4 PB", "5:00").withDependency(pbDropdown)
+    private val m5Pb by StringSetting("M5 PB", "5:00").withDependency(pbDropdown)
+    private val m6Pb by StringSetting("M6 PB", "5:00").withDependency(pbDropdown)
+    private val m7Pb by StringSetting("M7 PB", "5:00").withDependency(pbDropdown)
 
     enum class FloorEnums(
         val floor: String,
         val dungeon: String,
         val pb: () -> String
     ) {
-        F7("floor_7", "floors", {f7Pb.value}),
-        M4("floor_4", "master_mode_floors", {m4Pb.value}),
-        M5("floor_5", "master_mode_floors", {m5Pb.value}),
-        M6("floor_6", "master_mode_floors", {m6Pb.value}),
-        M7("floor_7", "master_mode_floors", {m7Pb.value})
+        F7("floor_7", "floors", {f7Pb}),
+        M4("floor_4", "master_mode_floors", { m4Pb }),
+        M5("floor_5", "master_mode_floors", { m5Pb }),
+        M6("floor_6", "master_mode_floors", { m6Pb }),
+        M7("floor_7", "master_mode_floors", { m7Pb })
     }
 
-    init {
-        addSettings(nameInput, floorSelector, pbDropdown, f7Pb, m4Pb, m5Pb, m6Pb, m7Pb)
-    }
 
     @OptIn(DelicateCoroutinesApi::class)
     override fun onKeyBind() {
         GlobalScope.launch(Dispatchers.IO) {
-            val secrets = getPB(nameInput.value)
+            val secrets = getPB(nameInput)
             modMessage(secrets)
             modMessage(FloorEnums.valueOf(floorSelector.selected).pb())
             modMessage(millisToMmss(FloorEnums.valueOf(floorSelector.selected).pb().toLong()))
@@ -63,12 +59,10 @@ object AutoKick: Module(
 
     @OptIn(DelicateCoroutinesApi::class)
     @SubscribeEvent
-    fun onChat(event: ClientChatReceivedEvent) {
-        if (event.type.toInt() == 2) return
-        val message = StringUtils.stripControlCodes(event.message.unformattedText)
-        val match = Regex("^Party Finder > (.*) joined the dungeon group! \\(.* Level .*\\)\$").find(message) ?: return
+    fun onChat(event: ChatPacket) {
+        val match = Regex("^Party Finder > (.*) joined the dungeon group! \\(.* Level .*\\)\$").find(event.message) ?: return
         GlobalScope.launch(Dispatchers.IO) {
-            val pb = getPB(nameInput.value) ?: return@launch
+            val pb = getPB(nameInput) ?: return@launch
             val reqPb = mmssToMillis(FloorEnums.valueOf(floorSelector.selected).pb()) ?: return@launch
             if (pb >= reqPb) {
                 ChatUtils.commandAny("/party chat Autokick: Kicked $match [PB] ${millisToMmss(pb.toLong())} > ${millisToMmss(reqPb)}")

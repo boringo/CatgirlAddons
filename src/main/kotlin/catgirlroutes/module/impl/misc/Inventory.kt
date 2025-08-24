@@ -7,24 +7,25 @@ import catgirlroutes.events.impl.PacketSentEvent
 import catgirlroutes.mixins.accessors.AccessorGuiEditSign
 import catgirlroutes.module.Category
 import catgirlroutes.module.Module
-import catgirlroutes.module.settings.RegisterHudElement
 import catgirlroutes.module.settings.Setting.Companion.withDependency
-import catgirlroutes.module.settings.Visibility
 import catgirlroutes.module.settings.impl.*
 import catgirlroutes.ui.clickgui.util.ColorUtil
-import catgirlroutes.ui.clickgui.util.ColorUtil.withAlpha
-import catgirlroutes.ui.hud.HudElement
-import catgirlroutes.ui.misc.elements.impl.MiscElementText
-import catgirlroutes.ui.misc.searchoverlay.AhBzSearch
-import catgirlroutes.ui.misc.searchoverlay.OverlayType
+import catgirlroutes.ui.clickgui.util.MouseUtils.mouseButton
+import catgirlroutes.ui.clickgui.util.MouseUtils.mx
+import catgirlroutes.ui.clickgui.util.MouseUtils.my
+import catgirlroutes.ui.misc.elements.impl.textField
+import catgirlroutes.ui.misc.elements.util.update
+import catgirlroutes.ui.misc.searchoverlay.AuctionOverlay
+import catgirlroutes.ui.misc.searchoverlay.BazaarOverlay
+import catgirlroutes.ui.misc.searchoverlay.SearchType
 import catgirlroutes.utils.LocationManager.inSkyblock
-import catgirlroutes.utils.Utils.lore
-import catgirlroutes.utils.Utils.noControlCodes
-import catgirlroutes.utils.render.HUDRenderUtils
+import catgirlroutes.utils.lore
+import catgirlroutes.utils.noControlCodes
+import catgirlroutes.utils.render.HUDRenderUtils.drawItemStackWithText
 import catgirlroutes.utils.render.HUDRenderUtils.drawPlayerOnScreen
 import catgirlroutes.utils.render.HUDRenderUtils.drawRoundedBorderedRect
 import catgirlroutes.utils.render.HUDRenderUtils.highlight
-import net.minecraft.client.gui.ScaledResolution
+import catgirlroutes.utils.render.WorldRenderUtils.partialTicks
 import net.minecraft.client.gui.inventory.GuiChest
 import net.minecraft.client.gui.inventory.GuiEditSign
 import net.minecraft.client.gui.inventory.GuiInventory
@@ -50,81 +51,77 @@ object Inventory : Module(
     tag = TagType.WHIP
 ) { // todo: neu type shit search overlay (jei shit on the side)
 
-    private val invDropdown = DropdownSetting("Inventory")
-    private val invHUD = BooleanSetting("Inventory HUD").withDependency(this.invDropdown)
-    private val playerModel = BooleanSetting("Player model").withDependency(invDropdown) { this.invHUD.enabled }
+    private val invDropdown by DropdownSetting("Inventory")
+    private val invHUD by HudSetting("Inventory HUD") {
+        size(2 + 22 * 9, 2 + 22 * 3)
+        render {
+            val bgColour = Color(139, 139, 139, 155)
+            val borderColour = Color(250, 250, 250, 155)
 
-    private val sbDropdown = DropdownSetting("Search Bar")
-    private val searchBar = BooleanSetting("Search bar", description = "Use \",\" separator to search for things like attributes").withDependency(this.sbDropdown)
-    private val bgColour_ = ColorSetting("Background colour", Color(ColorUtil.buttonColor)).withDependency(this.sbDropdown) { searchBar.enabled }
-    private val outlineColour_ = ColorSetting("Outline colour", ColorUtil.clickGUIColor).withDependency(this.sbDropdown) { searchBar.enabled }
-    private val itemList = BooleanSetting("Item list").withDependency(this.sbDropdown) { searchBar.enabled }
+            width = 2.0 + 22 * (if (playerModel) 11 else 9)
+            drawRoundedBorderedRect(0.0, 0.0, width, height, 5.0, 2.0, bgColour, borderColour)
 
-    private val ahDropdown = DropdownSetting("Auction house")
-    private val auctionOverlay = BooleanSetting("Auction search").withDependency(ahDropdown)
+            if (playerModel) drawPlayerOnScreen(width - 22.5, 62.5, partialTicks, 30.0)
 
-    private val bzDropdown = DropdownSetting("Bazaar")
-    private val bazaarOverlay = BooleanSetting("Bazaar search").withDependency(bzDropdown)
+            val stacks = mc.thePlayer.inventory.mainInventory.drop(9)
+            var y = -20.0
+            stacks.forEachIndexed { i, stack ->
+                if (i % 9 == 0) y += 22.0
+                val x = 2 + 22.0 * (i % 9)
+                drawRoundedBorderedRect(x, y, 20.0, 20.0, 5.0, 2.0, Color(139, 139, 139, 155), Color(250, 250, 250, 155))
+                stack?.let { drawItemStackWithText(it, x + 2.5, y + 2.5) }
+            }
+        }
+    }.withDependency(invDropdown)
+    private val playerModel: Boolean by BooleanSetting("Player model").withDependency(invDropdown) { invHUD.enabled }
 
-    private val ctrlF = BooleanSetting("Ctrl + F to search").withDependency { this.auctionOverlay.enabled || this.bazaarOverlay.enabled } // todo: Make it click on signs in other guis (price, quantity, etc)
+    private val sbDropdown by DropdownSetting("Search bar dropdown")
+    private val searchBar by HudSetting("Search bar", "Use \",\" separator to search for things like attributes") { size(200.0, 25.0) }.withDependency(this.sbDropdown)
+    private val bgColour_ by ColorSetting("Background colour", ColorUtil.buttonColor).withDependency(this.sbDropdown) { searchBar.enabled }
+    private val outlineColour_ by ColorSetting("Outline colour", ColorUtil.clickGUIColor).withDependency(this.sbDropdown) { searchBar.enabled }
+    private val itemList by BooleanSetting("Item list").withDependency(this.sbDropdown) { searchBar.enabled }
 
-    val ahHistory = StringSetting("AH_SEARCH", "[\"\"]",  5000, visibility = Visibility.HIDDEN)
-    val bzHistory = StringSetting("BZ_SEARCH", "[\"\"]", 5000, visibility = Visibility.HIDDEN)
-    val barX = NumberSetting("SEARCH_BAR_X", visibility = Visibility.HIDDEN)
-    val barY = NumberSetting("SEARCH_BAR_Y", visibility = Visibility.HIDDEN)
-    val barScale = NumberSetting("SEARCH_BAR_SCALE", 1.0,1.0,1.0,0.02, visibility = Visibility.HIDDEN)
+    private val ahDropdown by DropdownSetting("Auction house")
+    private val auctionOverlay by BooleanSetting("Auction search").withDependency(ahDropdown)
 
-    private var overlay: OverlayType = OverlayType.NONE
+    private val bzDropdown by DropdownSetting("Bazaar")
+    private val bazaarOverlay by BooleanSetting("Bazaar search").withDependency(bzDropdown)
+
+    private val ctrlF by BooleanSetting("Ctrl + F to search").withDependency { this.auctionOverlay || this.bazaarOverlay } // todo: Make it click on signs in other guis (price, quantity, etc)
+
+    var ahHistory by ListSetting("AH_SEARCH", mutableListOf<String>())
+    var bzHistory by ListSetting("BZ_SEARCH", mutableListOf<String>())
+
+    private var overlay: SearchType = SearchType.NONE
     private var clickedSearch = false
 
-    private var textField = MiscElementText(width = 200.0, height = 20.0, bgColour = this.bgColour_.value, outlineColour = this.outlineColour_.value.darker()) // temp // todo calc
+    private var textField = textField {
+        size(200.0, 20.0)
+        thickness = 2.0
+        radius = 5.0
+        colour = bgColour_
+        outlineColour = outlineColour_.darker()
+    }
+
     private var highlightSlots = mutableMapOf<Int, HighlightSlot>()
     private val stupid get() = mc.theWorld == null || !inSkyblock || !this.searchBar.enabled || (mc.currentScreen !is GuiInventory && mc.currentScreen !is GuiChest)
-
-    init {
-        addSettings(
-            this.invDropdown,
-            this.invHUD,
-            this.playerModel,
-
-            this.sbDropdown,
-            this.searchBar,
-            this.bgColour_,
-            this.outlineColour_,
-            this.itemList,
-
-            this.ahDropdown,
-            this.auctionOverlay,
-
-            this.bzDropdown,
-            this.bazaarOverlay,
-
-            this.ctrlF,
-
-            this.ahHistory,
-            this.bzHistory,
-            this.barX,
-            this.barY,
-            this.barScale
-        )
-    }
 
     @SubscribeEvent
     fun onS2DPacketOpenWindow(event: PacketReceiveEvent) {
         if (!inSkyblock || event.packet !is S2DPacketOpenWindow) return
         val title = event.packet.windowTitle.unformattedText
-        overlay = if ((title.contains("Auctions") || title.contains("Auction House")) && this.auctionOverlay.enabled) {
-            OverlayType.AUCTION
-        } else if (title.contains("Bazaar") && this.bazaarOverlay.enabled) {
-            OverlayType.BAZAAR
+        overlay = if ((title.contains("Auctions") || title.contains("Auction House")) && this.auctionOverlay) {
+            SearchType.AUCTION
+        } else if (title.contains("Bazaar") && this.bazaarOverlay) {
+            SearchType.BAZAAR
         } else {
-            OverlayType.NONE
+            SearchType.NONE
         }
     }
 
     @SubscribeEvent
     fun onC0EPacketClickWindow(event: PacketSentEvent) {
-        if (!inSkyblock || overlay == OverlayType.NONE || event.packet !is C0EPacketClickWindow) return
+        if (!inSkyblock || overlay == SearchType.NONE || event.packet !is C0EPacketClickWindow) return
         val registry = event.packet.clickedItem?.item?.registryName
         val name = event.packet.clickedItem?.displayName
         val slot = event.packet.slotId
@@ -133,15 +130,15 @@ object Inventory : Module(
 
     @SubscribeEvent(priority = EventPriority.HIGH)
     fun onGuiScreenKeyboard(event: GuiScreenEvent.KeyboardInputEvent.Pre) {
-        if (event.gui !is GuiChest || overlay == OverlayType.NONE || !this.ctrlF.enabled) return
+        if (event.gui !is GuiChest || overlay == SearchType.NONE || !this.ctrlF) return
         val openSlots = mc.thePlayer?.openContainer?.inventorySlots ?: return
 
-        val slotId = if (overlay == OverlayType.AUCTION) 48 else 45
+        val slotId = if (overlay == SearchType.AUCTION) 48 else 45
         val gui = event.gui as GuiChest
-        val signStack = openSlots[slotId]?.stack
+        val signStack = openSlots[slotId]?.stack ?: return
 
         if (Keyboard.isKeyDown(Keyboard.KEY_LCONTROL) && Keyboard.isKeyDown(Keyboard.KEY_F)) {
-            if (signStack?.item == Items.sign && signStack?.displayName == "§aSearch") {
+            if (signStack.item == Items.sign && signStack.displayName == "§aSearch") {
                 mc.playerController.windowClick(gui.inventorySlots.windowId, slotId, 0, 0, mc.thePlayer)
             } else {
 //                display = AhBzSearch(overlay) // todo: fix
@@ -152,11 +149,15 @@ object Inventory : Module(
 
     @SubscribeEvent
     fun onGuiOpen(event: GuiOpenEvent) {
-        if (event.gui !is GuiEditSign || overlay == OverlayType.NONE || !clickedSearch) return
+        if (event.gui !is GuiEditSign || overlay == SearchType.NONE || !clickedSearch) return
 
         val sign = (event.gui as AccessorGuiEditSign).tileSign
         sign?.let {
-            event.gui = AhBzSearch(overlay, sign)
+            event.gui = when(overlay) {
+                SearchType.AUCTION -> AuctionOverlay(it)
+                SearchType.BAZAAR -> BazaarOverlay(it)
+                SearchType.NONE -> return
+            }
         }
     }
 
@@ -168,7 +169,7 @@ object Inventory : Module(
             return
         }
 
-        this.highlightSlots.entries.removeIf { (_, hs) -> hs.string != this.textField.text }
+        this.highlightSlots.clear()
 
         mc.thePlayer?.openContainer?.inventorySlots?.forEachIndexed { i, slot ->
             slot.stack?.let {
@@ -190,14 +191,15 @@ object Inventory : Module(
         if (this.stupid) return
         GlStateManager.pushMatrix()
         GlStateManager.disableLighting()
-        this.textField.apply {
-            x = barX.value
-            y = barY.value
-            bgColour = bgColour_.value
-            outlineColour = outlineColour_.value.darker()
-            outlineFocusColour = outlineColour_.value
-            render(0, 0)
-        }
+
+        this.textField.update {
+            x = searchBar.x
+            y = searchBar.y
+            colour = bgColour_
+            outlineColour = outlineColour_.darker()
+            outlineHoverColour = outlineColour_
+        }.draw()
+
         GlStateManager.enableLighting()
         GlStateManager.popMatrix()
     }
@@ -210,45 +212,19 @@ object Inventory : Module(
 
     @SubscribeEvent
     fun onGuiScreenKeyboard2(event: GuiScreenEvent.KeyboardInputEvent.Pre) {
-        if (!inSkyblock || !this.searchBar.enabled || !this.textField.focus || !Keyboard.getEventKeyState()) return
-        this.textField.keyTyped(Keyboard.getEventCharacter(), Keyboard.getEventKey())
+        if (!inSkyblock || !this.searchBar.enabled || !this.textField.isFocused || !Keyboard.getEventKeyState()) return
+        this.textField.onKey(Keyboard.getEventCharacter(), Keyboard.getEventKey())
 
         event.isCanceled = true
         if (Keyboard.getEventKey() == Keyboard.KEY_ESCAPE) {
-            this.textField.focus = false
+            this.textField.isFocused = false
         }
     }
 
     @SubscribeEvent
     fun onGuiScreenMouse(event: GuiScreenEvent.MouseInputEvent.Pre) {
         if (this.stupid || !Mouse.getEventButtonState()) return
-        val sr = ScaledResolution(mc)
-        this.textField.mouseClicked(Mouse.getX() / 2, sr.scaledHeight - (Mouse.getY() / 2), Mouse.getEventButton())
-    }
-
-    // dummy HudElement to move search bar position
-    @RegisterHudElement
-    object SearchBar : HudElement(this, this.barX, this.barY, 200, 25, this.barScale) { override fun renderHud() {  } }
-
-    @RegisterHudElement
-    object InventoryHUD : HudElement(this, width = 2 + 22 * 9, height = 2 + 22 * 3) {
-        override fun renderHud() {
-            if (!invHUD.enabled) return
-
-            this.width = 2 + if (playerModel.enabled) 22 * 11 else 22 * 9
-            drawRoundedBorderedRect(0.0, 0.0, this.width.toDouble(), this.height.toDouble(), 5.0, 2.0, Color(139, 139, 139, 155), Color(250, 250, 250, 155))
-            if (playerModel.enabled) drawPlayerOnScreen(this.width - 22.5, 62.5, this.partialTicks, 30.0)
-
-            val stacks = mc.thePlayer.inventory.mainInventory.drop(9)
-            var y = -20.0
-            stacks.forEachIndexed { i, stack ->
-                if (i % 9 == 0) y += 22.0
-                val x = 2 + 22.0 * (i % 9)
-                drawRoundedBorderedRect(x, y, 20.0, 20.0, 5.0, 2.0, Color(139, 139, 139, 155), Color(250, 250, 250, 155))
-                stack?.let { HUDRenderUtils.drawItemStackWithText(it, x + 2.5, y + 2.5) }
-            }
-        }
-
+        this.textField.onMouseClick(mx, my, mouseButton)
     }
 
     private fun matchType(name: String, lore: String, string: String) = when {

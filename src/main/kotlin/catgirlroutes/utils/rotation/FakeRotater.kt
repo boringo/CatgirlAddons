@@ -37,7 +37,7 @@ open class Rotater {
     }
 }
 
-object FakeRotater : Rotater(), IRotater {
+object FakeRotater : Rotater(), IRotater { // useless ass shit
     override fun rotate(yaw: Float, pitch: Float) {
         Companion.yaw = yaw
         Companion.pitch = pitch

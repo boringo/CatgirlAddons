@@ -3,7 +3,6 @@ package catgirlroutes.utils
 import catgirlroutes.CatgirlRoutes.Companion.mc
 import catgirlroutes.events.impl.SkyblockJoinIslandEvent
 import catgirlroutes.module.impl.render.ClickGui
-import catgirlroutes.utils.Utils.postAndCatch
 import catgirlroutes.utils.clock.Executor
 import catgirlroutes.utils.clock.Executor.Companion.register
 import catgirlroutes.utils.dungeon.Dungeon
@@ -29,7 +28,7 @@ object LocationManager {
         Executor(500) {
             if (!inSkyblock)
                 inSkyblock = onHypixel && mc.theWorld?.scoreboard?.getObjectiveInDisplaySlot(1)
-                    ?.let { cleanSB(it.displayName).contains("SKYBLOCK") } == true || ClickGui.forceSkyblock.enabled
+                    ?.let { cleanSB(it.displayName).contains("SKYBLOCK") } == true || ClickGui.forceSkyblock
 
             if (currentArea.isArea(Island.Kuudra) && kuudraTier == 0)
                 sidebarLines.find { cleanLine(it).contains("Kuudra's Hollow (") }?.let {
@@ -75,7 +74,7 @@ object LocationManager {
     fun onConnect(event: FMLNetworkEvent.ClientConnectedToServerEvent) {
         onHypixel = mc.runCatching {
             !event.isLocal && ((thePlayer?.clientBrand?.lowercase()?.contains("hypixel")
-                ?: currentServerData?.serverIP?.lowercase()?.contains("hypixel")) == true) || ClickGui.forceHypixel.enabled
+                ?: currentServerData?.serverIP?.lowercase()?.contains("hypixel")) == true) || ClickGui.forceHypixel
         }.getOrDefault(false)
     }
 

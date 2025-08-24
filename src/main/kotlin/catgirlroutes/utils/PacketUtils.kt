@@ -8,4 +8,8 @@ object PacketUtils {
     fun sendPacket(packet: Packet<*>?) {
         mc.netHandler.networkManager.sendPacket(packet)
     }
+
+    fun addToSendQueue(packet: Packet<*>?) {
+        mc.netHandler.addToSendQueue(packet)
+    }
 }

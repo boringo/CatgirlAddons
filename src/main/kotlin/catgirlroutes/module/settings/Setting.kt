@@ -1,6 +1,7 @@
 package catgirlroutes.module.settings
 
 import catgirlroutes.module.Module
+import catgirlroutes.module.settings.impl.Dropdown
 import catgirlroutes.module.settings.impl.DropdownSetting
 import kotlin.properties.PropertyDelegateProvider
 import kotlin.properties.ReadWriteProperty
@@ -48,7 +49,7 @@ abstract class Setting<T>(
     /**
      * The dropdown setting that this setting depends on.
      */
-    var dropdownDependency: DropdownSetting? = null
+    private var dropdownDependency: Dropdown? = null
 
     /**
      * Returns whether this setting should be visible based on the [DropdownSetting] state and/or [visibilityDependency].
@@ -116,12 +117,25 @@ abstract class Setting<T>(
         }
 
         fun <K: Setting<*>> K.withDependency(dropdown: DropdownSetting): K {
+            this.dropdownDependency = dropdown.value
+            dropdown.dependentModules.add(this)
+            return this
+        }
+
+        fun <K: Setting<*>> K.withDependency(dropdown: Dropdown): K {
             this.dropdownDependency = dropdown
             dropdown.dependentModules.add(this)
             return this
         }
 
         fun <K: Setting<*>> K.withDependency(dropdown: DropdownSetting, dependency: () -> Boolean): K {
+            this.dropdownDependency = dropdown.value
+            dropdown.dependentModules.add(this)
+            this.visibilityDependency = dependency
+            return this
+        }
+
+        fun <K: Setting<*>> K.withDependency(dropdown: Dropdown, dependency: () -> Boolean): K {
             this.dropdownDependency = dropdown
             dropdown.dependentModules.add(this)
             this.visibilityDependency = dependency

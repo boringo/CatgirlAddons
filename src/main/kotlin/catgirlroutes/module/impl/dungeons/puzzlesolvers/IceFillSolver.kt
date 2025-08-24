@@ -11,21 +11,16 @@ import catgirlroutes.utils.ClientListener.scheduleTask
 import catgirlroutes.utils.MovementUtils.setKey
 import catgirlroutes.utils.MovementUtils.stopVelo
 import catgirlroutes.utils.MovementUtils.targetBlocks
-import catgirlroutes.utils.Utils.Vec2
-import catgirlroutes.utils.Utils.addVec
-import catgirlroutes.utils.VecUtils.toVec3
+import catgirlroutes.utils.*
 import catgirlroutes.utils.dungeon.DungeonUtils
 import catgirlroutes.utils.dungeon.DungeonUtils.getRealCoords
 import catgirlroutes.utils.dungeon.IceFillFloors
 import catgirlroutes.utils.dungeon.tiles.Rotations
-import catgirlroutes.utils.isAir
 import catgirlroutes.utils.render.WorldRenderUtils
 import com.google.gson.GsonBuilder
 import com.google.gson.reflect.TypeToken
 import net.minecraft.network.play.server.S08PacketPlayerPosLook
-import net.minecraft.util.BlockPos
-import net.minecraft.util.Vec3
-import net.minecraft.util.Vec3i
+import net.minecraft.util.*
 import net.minecraftforge.fml.common.eventhandler.SubscribeEvent
 import java.awt.Color
 import java.io.InputStreamReader
@@ -81,8 +76,8 @@ object IceFillSolver {
             val fy = mc.thePlayer.posY + 0.1
             val fz = floor(mc.thePlayer.posZ) + 0.5
 
-            if ((fx == p1.xCoord && fy == p1.yCoord && fz == p1.zCoord) || (mc.thePlayer.posX == p1.xCoord && fy == p1.yCoord && mc.thePlayer.posZ == p1.zCoord) && targetBlocks.isEmpty() && fillAuto.value && !tpCooldown) {
-                scheduleTask(fillDelay.value.toInt() - 1) {
+            if ((fx == p1.xCoord && fy == p1.yCoord && fz == p1.zCoord) || (mc.thePlayer.posX == p1.xCoord && fy == p1.yCoord && mc.thePlayer.posZ == p1.zCoord) && targetBlocks.isEmpty() && fillAuto && !tpCooldown) {
+                scheduleTask(fillDelay.toInt() - 1) {
                     if(mc.thePlayer.isCollidedVertically && !teleported) {
                         stopVelo()
                         val x = p2.xCoord - mc.thePlayer.posX
@@ -98,7 +93,7 @@ object IceFillSolver {
 
     @SubscribeEvent
     fun onPacket(event: PacketReceiveEvent) {
-        if (event.packet !is S08PacketPlayerPosLook || !fillSolver.value) return
+        if (event.packet !is S08PacketPlayerPosLook || !fillSolver) return
         tpCooldown = true
 
     }

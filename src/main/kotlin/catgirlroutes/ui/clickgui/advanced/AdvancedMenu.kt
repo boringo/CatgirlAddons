@@ -66,12 +66,13 @@ class AdvancedMenu(val module: Module) {
                 val newElement = when (setting) {
                     is BooleanSetting   -> AdvancedElementCheckBox (this, module, setting)
                     is NumberSetting    -> AdvancedElementSlider   (this, module, setting)
-                    is StringSelectorSetting  -> AdvancedElementStringSelector (this, module, setting)
-                    is SelectorSetting  -> AdvancedElementSelector (this, module, setting)
+                    is SelectorSetting  -> AdvancedElementStringSelector (this, module, setting)
+                    is tSelectorSetting  -> AdvancedElementSelector (this, module, setting)
                     is StringSetting    -> AdvancedElementTextField(this, module, setting)
                     is ColorSetting -> AdvancedElementColor    (this, module, setting)
                     is ActionSetting    -> AdvancedElementAction   (this, module, setting)
                     is KeyBindSetting   -> AdvancedElementKeyBind  (this, module, setting)
+                    is HudSetting       -> AdvancedElementHud(this, module, setting)
 //                    is DropDownSetting  -> AdvancedElementDropDown (this, module, setting) // withDependency no wrokie, that's a feature!
                     else -> return@addElement
                 }
@@ -106,7 +107,7 @@ class AdvancedMenu(val module: Module) {
         GlStateManager.translate(x.toFloat(), y.toFloat(), 0f)
 
         /** Rendering the background box */
-        Gui.drawRect(0, 0,  width, height, ColorUtil.elementColor)
+        Gui.drawRect(0, 0,  width, height, ColorUtil.elementColor.rgb)
 
         // Render a title bar containing the name of the module
         Gui.drawRect(0, 0, width, 15, color)

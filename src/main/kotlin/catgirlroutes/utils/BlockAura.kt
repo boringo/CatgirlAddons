@@ -1,6 +1,7 @@
 package catgirlroutes.utils
 
 import catgirlroutes.CatgirlRoutes.Companion.mc
+import catgirlroutes.utils.ChatUtils.modMessage
 import catgirlroutes.utils.ClientListener.scheduleTask
 import catgirlroutes.utils.PlayerUtils.recentlySwapped
 import catgirlroutes.utils.render.WorldRenderUtils.drawCustomSizedBoxAt
@@ -31,7 +32,7 @@ object BlockAura {
     fun onTick(event: TickEvent.ClientTickEvent) {
         if (event.phase != TickEvent.Phase.START || blockArray.isEmpty()) return
         if (recentlySwapped) return
-        blockArray.forEach{action ->
+        blockArray.forEach{ action ->
             val eyePos = mc.thePlayer.getPositionEyes(0f)
             if (eyePos.distanceTo(Vec3(action.block)) <= action.reach) {
                 val blockState = mc.theWorld.getBlockState(action.block)
@@ -42,7 +43,6 @@ object BlockAura {
                     (aabb.minY + aabb.maxY) / 2,
                     (aabb.minZ + aabb.maxZ) / 2
                 )
-                //modMessage(block)
                 val movingObjectPosition: MovingObjectPosition = BlockUtils.collisionRayTrace(
                     action.block,
                     aabb,
@@ -71,7 +71,7 @@ object BlockAura {
     fun onTick2(event: TickEvent.ClientTickEvent) {
         if (event.phase != TickEvent.Phase.START || breakArray.isEmpty()) return
         breakArray.forEach{block ->
-            if (Utils.distanceToPlayer(block.x, block.y, block.z) < 4) {
+            if (distanceToPlayer(block.x, block.y, block.z) < 4) {
                 val blockState = mc.theWorld.getBlockState(block)
                 blockState.block.setBlockBoundsBasedOnState(mc.theWorld, block)
                 val aabb = aabbConvert(blockState.block.getSelectedBoundingBox(mc.theWorld, block), block)
@@ -126,5 +126,23 @@ object BlockAura {
     @SubscribeEvent
     fun onWorldUnload(event: WorldEvent.Unload) {
         blockArray.clear()
+    }
+
+    fun addBlock(blockPos: BlockPos, reach: Double = 6.0) {
+        blockArray.add(BlockAuraAction(blockPos, reach))
+    }
+
+    fun addBlock(vec3: Vec3, reach: Double = 6.0) {
+        addBlock(vec3.toBlockPos(), reach)
+    }
+
+    fun addBlockNoDupe(blockPos: BlockPos, reach: Double = 6.0) {
+        val block = BlockAuraAction(blockPos, reach)
+        if (!blockArray.contains(block)) blockArray.add(block)
+    }
+
+    fun addBlockNoDupe(vec3: Vec3, reach: Double = 6.0) {
+        println("Added $vec3")
+        addBlockNoDupe(vec3.toBlockPos(), reach)
     }
 }

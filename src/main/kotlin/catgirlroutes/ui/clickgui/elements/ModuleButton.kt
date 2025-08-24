@@ -56,14 +56,15 @@ class ModuleButton(val module: Module, val panel: Panel) {
                 val newElement = when (setting) {
                     is BooleanSetting ->    ElementCheckBox(this, setting)
                     is NumberSetting ->     ElementSlider(this, setting)
-                    is StringSelectorSetting ->   ElementStringSelector(this, setting)
-                    is SelectorSetting ->   ElementSelector(this, setting)
+                    is SelectorSetting ->   ElementStringSelector(this, setting)
+                    is tSelectorSetting ->   ElementSelector(this, setting)
                     is StringSetting ->     ElementTextField(this, setting)
                     is ColorSetting ->      ElementColor(this, setting)
                     is ActionSetting ->     ElementAction(this, setting)
                     is KeyBindSetting ->    ElementKeyBind(this, setting)
                     is DropdownSetting ->   ElementDropdown(this, setting)
-                    else -> return@addElement
+                    is HudSetting ->        ElementHud(this, setting)
+                    else ->                 ElementDummy(this, setting)
                 }
                 menuElements.add(position, newElement)
             }else {
@@ -85,12 +86,12 @@ class ModuleButton(val module: Module, val panel: Panel) {
 
         Gui.drawRect(0, 0, width, height + 1, ColorUtil.moduleButtonColor)
         if (ClickGui.design.isSelected("New")) {
-            Gui.drawRect(0, 0, 2, height + 1, ColorUtil.outlineColor)
+            Gui.drawRect(0, 0, 2, height + 1, ColorUtil.outlineColor.rgb)
         }
 
         /** Draw the highlight when the module is enabled. */
         if (module.enabled) {
-            Gui.drawRect(0, 0, width, height + 1, ColorUtil.outlineColor)
+            Gui.drawRect(0, 0, width, height + 1, ColorUtil.outlineColor.rgb)
         }
 
         /** Change color on hover */

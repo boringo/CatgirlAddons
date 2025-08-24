@@ -1,16 +1,16 @@
 package catgirlroutes.module.impl.player
 
-import catgirlroutes.CatgirlRoutes.Companion.mc
 import catgirlroutes.module.Category
 import catgirlroutes.module.Module
-import catgirlroutes.module.settings.RegisterHudElement
 import catgirlroutes.module.settings.Setting.Companion.withDependency
 import catgirlroutes.module.settings.impl.BooleanSetting
 import catgirlroutes.module.settings.impl.ColorSetting
 import catgirlroutes.module.settings.impl.DropdownSetting
+import catgirlroutes.module.settings.impl.HudSetting
 import catgirlroutes.ui.clickgui.util.ColorUtil
-import catgirlroutes.ui.clickgui.util.FontUtil
-import catgirlroutes.ui.hud.HudElement
+import catgirlroutes.ui.clickgui.util.FontUtil.drawStringWithShadow
+import catgirlroutes.ui.clickgui.util.FontUtil.fontHeight
+import catgirlroutes.ui.clickgui.util.FontUtil.getWidth
 import catgirlroutes.utils.LocationManager.inSkyblock
 import catgirlroutes.utils.SkyblockPlayer
 import catgirlroutes.utils.SkyblockPlayer.DEF_REGEX
@@ -38,73 +38,163 @@ import java.util.*
 
 
 object PlayerDisplay: Module(
-    name = "Player Display",
-    category = Category.PLAYER,
+    "Player Display",
+    Category.PLAYER,
     tag = TagType.WHIP
 ) {
+    private const val BAR_WIDTH = 75.0
+    private const val BAR_HEIGHT = 7.0
 
-    private val hideHealth = BooleanSetting("Hide health")
-    private val hideArmour = BooleanSetting("Hide armour")
-    private val hideHunger = BooleanSetting("Hide hunger")
+    private val hideHealth by BooleanSetting("Hide health")
+    private val hideArmour by BooleanSetting("Hide armour")
+    private val hideHunger by BooleanSetting("Hide hunger")
 
-    private val healthDropdown = DropdownSetting("Health dropdown")
-    private val health = BooleanSetting("Health").withDependency(healthDropdown)
-    private val healthColour = ColorSetting("Health colour", Color(255,85,85), false).withDependency(healthDropdown) { health.enabled }
-    private val healthBar = BooleanSetting("Health bar").withDependency(healthDropdown)
-    private val healthBarColour = ColorSetting("Health bar colour", Color(255,85,85)).withDependency(healthDropdown) { healthBar.enabled }
-    private val effectiveHealth = BooleanSetting("Effective health").withDependency(healthDropdown)
+    private val healthDropdown by DropdownSetting("Health dropdown")
+    private val health by HudSetting("Health") {
+        size("1,200/10,900")
+        visibleIf { inSkyblock }
+        render { drawStringWithShadow("${(SkyblockPlayer.health + SkyblockPlayer.absorption).commas()}/${SkyblockPlayer.maxHealth.commas()}", 0.0, 0.0, healthColour.rgb) }
+        preview { drawStringWithShadow("1,200/10,900", 0.0, 0.0, healthColour.rgb) }
+    }.withDependency(healthDropdown)
 
-    private val manaDropdown = DropdownSetting("Mana dropdown")
-    private val mana = BooleanSetting("Mana").withDependency(manaDropdown)
-    private val manaColour = ColorSetting("Mana colour", Color(85, 85, 255), false).withDependency(manaDropdown) { mana.enabled }
-    private val manaBar = BooleanSetting("Mana bar").withDependency(manaDropdown)
-    private val manaBarColour = ColorSetting("Mana bar colour", Color(85, 85, 255)).withDependency(manaDropdown) { manaBar.enabled }
-    private val manaUsage = BooleanSetting("Mana usage").withDependency(manaDropdown)
-    private val overflowMana = BooleanSetting("Overflow mana").withDependency(manaDropdown)
+    private val healthColour: Color by ColorSetting("Health colour", Color(255,85,85), false).withDependency(healthDropdown) { health.enabled }
 
-    private val otherDropdown = DropdownSetting("Other")
-    private val defence = BooleanSetting("Defence").withDependency(otherDropdown)
-    private val defenceColour = ColorSetting("Defence colour", Color( 85, 255, 85), false).withDependency(otherDropdown) { defence.enabled }
-    private val speed = BooleanSetting("Speed").withDependency(otherDropdown)
-    private val stacks = BooleanSetting("Crimson stacks").withDependency(otherDropdown)
-    private val salvation = BooleanSetting("Salvation").withDependency(otherDropdown)
-    private val secrets = BooleanSetting("Secret display").withDependency(otherDropdown)
-    private val sbaStyle = BooleanSetting("SBA secrets style").withDependency(otherDropdown) { secrets.enabled }
+    private val healthBar by HudSetting("Health bar") {
+        size(BAR_WIDTH, BAR_HEIGHT)
+        visibleIf { inSkyblock }
+        render {
+            val fillWidth = SkyblockPlayer.health.toFloat() / SkyblockPlayer.maxHealth.toFloat() * BAR_WIDTH
+            drawRoundedRect(0.0, 0.0, BAR_WIDTH, BAR_HEIGHT, 5.0, ColorUtil.bgColor)
+            drawRoundedRect(0.0, 0.0, fillWidth, BAR_HEIGHT, 5.0, healthBarColour)
+            drawRoundedOutline(0.0, 0.0, BAR_WIDTH, BAR_HEIGHT, 5.0, 1.0, Color(208, 208, 208))
+        }
+        preview {
+            drawRoundedRect(0.0, 0.0, BAR_WIDTH, BAR_HEIGHT, 5.0, ColorUtil.bgColor)
+            drawRoundedRect(0.0, 0.0, 50.0, BAR_HEIGHT, 5.0, healthBarColour)
+            drawRoundedOutline(0.0, 0.0, BAR_WIDTH, BAR_HEIGHT, 5.0, 1.0, Color(208, 208, 208))
+        }
+    }.withDependency(healthDropdown)
 
-    private val barWidth = 75.0
-    private val barHeight = 7.0
+    private val healthBarColour: Color by ColorSetting("Health bar colour", Color(255,85,85)).withDependency(healthDropdown) { healthBar.enabled }
 
-    init {
-        addSettings(
-            this.hideHealth,
-            this.hideArmour,
-            this.hideHunger,
+    private val effectiveHealth by HudSetting("Effective health") {
+        size("54,879")
+        visibleIf { inSkyblock }
+        render { drawStringWithShadow(SkyblockPlayer.effectiveHealth.commas(), 0.0, 0.0, effectiveHealthColour.rgb) }
+        preview { drawStringWithShadow("54,879", 0.0, 0.0, effectiveHealthColour.rgb) }
+    }.withDependency(healthDropdown)
 
-            this.healthDropdown,
-            this.health,
-            this.healthColour,
-            this.healthBar,
-            this.healthBarColour,
-            this.effectiveHealth,
+    private val effectiveHealthColour: Color by ColorSetting("Effective health colour", Color(0, 170, 0)).withDependency(healthDropdown) { effectiveHealth.enabled }
 
-            this.manaDropdown,
-            this.mana,
-            this.manaColour,
-            this.manaBar,
-            this.manaBarColour,
-            this.manaUsage,
-            this.overflowMana,
+    private val manaDropdown by DropdownSetting("Mana dropdown")
+    private val mana by HudSetting("Mana") {
+        size("1,300/10,900")
+        visibleIf { inSkyblock }
+        render { drawStringWithShadow("${SkyblockPlayer.mana.commas()}/${SkyblockPlayer.maxMana.commas()}", 0.0, 0.0, manaColour.rgb) }
+        preview { drawStringWithShadow("1,300/10,900", 0.0, 0.0, manaColour.rgb) }
+    }.withDependency(manaDropdown)
 
-            this.otherDropdown,
-            this.defence,
-            this.defenceColour,
-            this.speed,
-            this.stacks,
-            this.salvation,
-            this.secrets,
-            this.sbaStyle
-        )
-    }
+    private val manaColour: Color by ColorSetting("Mana colour", Color(85, 85, 255), false).withDependency(manaDropdown) { mana.enabled }
+
+    private val manaBar by HudSetting("Mana bar") {
+        size(BAR_WIDTH, BAR_HEIGHT)
+        visibleIf { inSkyblock }
+        render {
+            val fillWidth = SkyblockPlayer.mana.toFloat() / SkyblockPlayer.maxMana.toFloat() * BAR_WIDTH
+            drawRoundedRect(0.0, 0.0, BAR_WIDTH, BAR_HEIGHT, 5.0, ColorUtil.bgColor)
+            drawRoundedRect(0.0, 0.0, fillWidth, BAR_HEIGHT, 5.0, manaBarColour)
+            drawRoundedOutline(0.0, 0.0, BAR_WIDTH, BAR_HEIGHT, 5.0, 1.0, Color(208, 208, 208))
+        }
+        preview {
+            drawRoundedRect(0.0, 0.0, BAR_WIDTH, BAR_HEIGHT, 5.0, ColorUtil.bgColor)
+            drawRoundedRect(0.0, 0.0, 50.0, BAR_HEIGHT, 5.0, manaBarColour)
+            drawRoundedOutline(0.0, 0.0, BAR_WIDTH, BAR_HEIGHT, 5.0, 1.0, Color(208, 208, 208))
+        }
+    }.withDependency(manaDropdown)
+
+    private val manaBarColour: Color by ColorSetting("Mana bar colour", Color(85, 85, 255)).withDependency(manaDropdown) { manaBar.enabled }
+
+    private val manaUsage by HudSetting("Mana usage") {
+        size("§b-50 Mana (§6Speed Boost§b)")
+        visibleIf { inSkyblock && SkyblockPlayer.manaUsage.isNotEmpty() }
+        render { drawStringWithShadow(SkyblockPlayer.manaUsage, 0.0, 0.0) }
+        preview { drawStringWithShadow("§b-50 Mana (§6Speed Boost§b)", 0.0, 0.0) }
+    }.withDependency(manaDropdown)
+
+    private val overflowMana by HudSetting("Overflow mana") {
+        size("600ʬ")
+        visibleIf { inSkyblock && SkyblockPlayer.overflowMana != 0 }
+        render { drawStringWithShadow("${SkyblockPlayer.overflowMana.commas()}ʬ", 0.0, 0.0, overflowManaColour.rgb) }
+        preview { drawStringWithShadow("600ʬ", 0.0, 0.0, overflowManaColour.rgb) }
+    }.withDependency(manaDropdown)
+
+    private val overflowManaColour: Color by ColorSetting("Overflow mana colour", Color(0, 170, 170), false).withDependency(manaDropdown) { overflowMana.enabled }
+
+    private val otherDropdown by DropdownSetting("Other")
+
+    private val defence by HudSetting("Defence") {
+        size("10,000")
+        visibleIf { inSkyblock }
+        render { drawStringWithShadow(SkyblockPlayer.defence.commas(), 0.0, 0.0, defenceColour.rgb) }
+        preview { drawStringWithShadow("10,000", 0.0, 0.0, defenceColour.rgb) }
+    }.withDependency(otherDropdown)
+
+    private val defenceColour: Color by ColorSetting("Defence colour", Color( 85, 255, 85), false).withDependency(otherDropdown) { defence.enabled }
+
+    private val speed by HudSetting("Speed") {
+        size("✦500")
+        visibleIf { inSkyblock }
+        render { drawStringWithShadow("✦${SkyblockPlayer.speed}", 0.0, 0.0, speedColour.rgb) }
+        preview { drawStringWithShadow("✦500", 0.0, 0.0, speedColour.rgb) }
+    }.withDependency(otherDropdown)
+
+    private val speedColour: Color by ColorSetting("Speed colour", Color.WHITE, false).withDependency(otherDropdown) { speed.enabled }
+
+    private val stacks by HudSetting("Crimson stacks") {
+        size("10ᝐ")
+        visibleIf { inSkyblock && SkyblockPlayer.stacks.isNotEmpty() }
+        render { drawStringWithShadow(SkyblockPlayer.stacks, 0.0, 0.0) }
+        preview { drawStringWithShadow("10ᝐ", 0.0, 0.0) }
+    }.withDependency(otherDropdown)
+
+    private val salvation by HudSetting("Salvation") {
+        size("T3!")
+        visibleIf { inSkyblock && SkyblockPlayer.salvation != 0 }
+        render { drawStringWithShadow("T${SkyblockPlayer.salvation}!", 0.0, 0.0) }
+        preview { drawStringWithShadow("T3!", 0.0, 0.0) }
+    }.withDependency(otherDropdown)
+
+    private val secrets by HudSetting("Secret display") {
+        width { if (sbaStyle) 18 + "Secrets".getWidth() else "5/10 Secrets".getWidth() }
+        height { if (sbaStyle) fontHeight * 2 + 2.0 else fontHeight + 2.0 }
+        visibleIf { inDungeons && !inBoss }
+        render {
+            val colour = when (currentSecrets / maxSecrets.toDouble()) {
+                in 0.0..0.5 -> "§c"
+                in 0.5..0.75 -> "§e"
+                else -> "§a"
+            }
+            if (sbaStyle) {
+                drawItemStackWithText(ItemStack(Blocks.chest), 0.0, 0.0)
+                drawStringWithShadow("§7Secrets", 16.0, 0.0)
+                val secretsText = if (currentSecrets > -1) "$colour$currentSecrets§7/$colour$maxSecrets" else "§7Unknown"
+                drawStringWithShadow(secretsText, 18 + "Secrets".getWidth() / 2 - secretsText.getWidth() / 2, 11.0)
+            } else if (currentSecrets > -1) {
+                drawStringWithShadow("$colour$currentSecrets/$maxSecrets Secrets", 0.0, 0.0)
+            }
+        }
+        preview {
+            if (sbaStyle) {
+                drawItemStackWithText(ItemStack(Blocks.chest), 0.0, 0.0)
+                drawStringWithShadow("§7Secrets", 16.0, 0.0)
+                drawStringWithShadow("§e5§7/§e10", 16.0 + 2.0 + "Secrets".getWidth() / 2.0 - "5/10".getWidth() / 2.0, 11.0)
+            } else {
+                drawStringWithShadow("§e5/10 Secrets", 0.0, 0.0)
+            }
+        }
+    }.withDependency(otherDropdown)
+
+    private val sbaStyle: Boolean by BooleanSetting("SBA secrets style").withDependency(otherDropdown) { secrets.enabled }
 
     @SubscribeEvent
     fun onRenderOverlay(event: RenderGameOverlayEvent.Pre) {
@@ -112,9 +202,9 @@ object PlayerDisplay: Module(
         if (!inSkyblock) return
 
         event.isCanceled = when (event.type) {
-            RenderGameOverlayEvent.ElementType.HEALTH -> hideHealth.enabled
-            RenderGameOverlayEvent.ElementType.ARMOR -> hideArmour.enabled
-            RenderGameOverlayEvent.ElementType.FOOD -> hideHunger.enabled
+            RenderGameOverlayEvent.ElementType.HEALTH -> hideHealth
+            RenderGameOverlayEvent.ElementType.ARMOR -> hideArmour
+            RenderGameOverlayEvent.ElementType.FOOD -> hideHunger
             else -> return
         }
     }
@@ -151,211 +241,5 @@ object PlayerDisplay: Module(
         return toReturn
     }
 
-    @RegisterHudElement
-    object HealthHud : HudElement(
-        this, 0, 0,
-        mc.fontRendererObj.getStringWidth("1,200/10,900"),
-        mc.fontRendererObj.FONT_HEIGHT + 2,
-        preview = { FontUtil.drawStringWithShadow("1,200/10,900", 0.0, 0.0, healthColour.value.rgb) }
-    ) {
-        override fun renderHud() {
-            if (!inSkyblock || !health.enabled) return
-            FontUtil.drawStringWithShadow("${(SkyblockPlayer.health + SkyblockPlayer.absorption).commas()}/${SkyblockPlayer.maxHealth.commas()}", 0.0, 0.0, healthColour.value.rgb)
-        }
-    }
-
-    @RegisterHudElement
-    object HealthBarHud : HudElement(
-        this, 0, 0,
-        barWidth.toInt(), barHeight.toInt() + 4,
-        preview = {
-            drawRoundedRect(0.0, 0.0, barWidth, barHeight, 5.0, Color(ColorUtil.bgColor))
-            drawRoundedRect(0.0, 0.0, 50.0, barHeight, 5.0, healthBarColour.value)
-            drawRoundedOutline(0.0, 0.0, barWidth, barHeight, 5.0, 1.0, Color(208, 208, 208))
-        }
-    ) {
-        override fun renderHud() {
-            if (!inSkyblock || !healthBar.enabled) return
-            val fillWidth = SkyblockPlayer.health.toFloat() / SkyblockPlayer.maxHealth.toFloat() * barWidth
-            drawRoundedRect(0.0, 0.0, barWidth, barHeight, 5.0, Color(ColorUtil.bgColor))
-            drawRoundedRect(0.0, 0.0, fillWidth, barHeight, 5.0, healthBarColour.value)
-            drawRoundedOutline(0.0, 0.0, barWidth, barHeight, 5.0, 1.0, Color(208, 208, 208))
-        }
-    }
-
-    @RegisterHudElement
-    object EffectiveHealthHud : HudElement(
-        this, 0, 0,
-        mc.fontRendererObj.getStringWidth("54,879"),
-        mc.fontRendererObj.FONT_HEIGHT + 2,
-        preview = { FontUtil.drawStringWithShadow("54,879", 0.0, 0.0) }
-    ) {
-        override fun renderHud() {
-            if (!inSkyblock || !effectiveHealth.enabled) return
-            FontUtil.drawStringWithShadow(SkyblockPlayer.effectiveHealth.commas(), 0.0, 0.0)
-        }
-    }
-
-    @RegisterHudElement
-    object ManaHud : HudElement(
-        this, 0, 0,
-        mc.fontRendererObj.getStringWidth("1,300/10,900"),
-        mc.fontRendererObj.FONT_HEIGHT + 2,
-        preview = { FontUtil.drawStringWithShadow("1,300/10,900", 0.0, 0.0, manaColour.value.rgb) }
-    ) {
-        override fun renderHud() {
-            if (!inSkyblock || !mana.enabled) return
-            FontUtil.drawStringWithShadow("${SkyblockPlayer.mana.commas()}/${SkyblockPlayer.maxMana.commas()}", 0.0, 0.0, manaColour.value.rgb)
-        }
-    }
-
-    @RegisterHudElement
-    object ManaBarHud : HudElement(
-        this, 0, 0,
-        barWidth.toInt(), barHeight.toInt() + 4,
-        preview = {
-            drawRoundedRect(0.0, 0.0, barWidth, barHeight, 5.0, Color(ColorUtil.bgColor))
-            drawRoundedRect(0.0, 0.0, 50.0, barHeight, 5.0, manaBarColour.value)
-            drawRoundedOutline(0.0, 0.0, barWidth, barHeight, 5.0, 1.0, Color(208, 208, 208))
-        }
-    ) {
-        override fun renderHud() {
-            if (!inSkyblock || !manaBar.enabled) return
-            val fillWidth = SkyblockPlayer.mana.toFloat() / SkyblockPlayer.maxMana.toFloat() * barWidth
-            drawRoundedRect(0.0, 0.0, barWidth, barHeight, 5.0, Color(ColorUtil.bgColor))
-            drawRoundedRect(0.0, 0.0, fillWidth, barHeight, 5.0, manaBarColour.value)
-            drawRoundedOutline(0.0, 0.0, barWidth, barHeight, 5.0, 1.0, Color(208, 208, 208))
-        }
-    }
-
-    @RegisterHudElement
-    object ManaUsageHud : HudElement(
-        this, 0, 0,
-        mc.fontRendererObj.getStringWidth("§b-50 Mana (§6Speed Boost§b)"),
-        mc.fontRendererObj.FONT_HEIGHT + 2,
-        preview = { FontUtil.drawStringWithShadow("§b-50 Mana (§6Speed Boost§b)", 0.0, 0.0) }
-
-    ) {
-        override fun renderHud() {
-            if (!inSkyblock || !manaUsage.enabled || SkyblockPlayer.manaUsage.isEmpty()) return
-            FontUtil.drawStringWithShadow(SkyblockPlayer.manaUsage, 0.0, 0.0)
-        }
-    }
-
-    @RegisterHudElement
-    object OverflowManaHud : HudElement(
-        this, 0, 0,
-        mc.fontRendererObj.getStringWidth("600ʬ"),
-        mc.fontRendererObj.FONT_HEIGHT + 2,
-        preview = { FontUtil.drawStringWithShadow("600ʬ", 0.0, 0.0) }
-
-    ) {
-        override fun renderHud() {
-            if (!inSkyblock || !overflowMana.enabled || SkyblockPlayer.overflowMana == 0) return
-            FontUtil.drawStringWithShadow("${SkyblockPlayer.overflowMana.commas()}ʬ", 0.0, 0.0)
-        }
-    }
-
-    @RegisterHudElement
-    object DefenceHud : HudElement(
-        this, 0, 0,
-        mc.fontRendererObj.getStringWidth("10,000"),
-        mc.fontRendererObj.FONT_HEIGHT + 2,
-        preview = { FontUtil.drawStringWithShadow("10,000", 0.0, 0.0, defenceColour.value.rgb) }
-    ) {
-        override fun renderHud() {
-            if (!inSkyblock || !defence.enabled) return
-            FontUtil.drawStringWithShadow(SkyblockPlayer.defence.commas(), 0.0, 0.0, defenceColour.value.rgb)
-        }
-    }
-
-    @RegisterHudElement
-    object SpeedHud : HudElement(
-        this, 0, 0,
-        mc.fontRendererObj.getStringWidth("✦500"),
-        mc.fontRendererObj.FONT_HEIGHT + 2,
-        preview = { FontUtil.drawStringWithShadow("✦500", 0.0, 0.0) }
-    ) {
-        override fun renderHud() {
-            if (!inSkyblock || !speed.enabled) return
-            FontUtil.drawStringWithShadow("✦${SkyblockPlayer.speed}", 0.0, 0.0)
-        }
-    }
-
-    @RegisterHudElement
-    object StacksHud : HudElement(
-        this, 0, 0,
-        mc.fontRendererObj.getStringWidth("10ᝐ"),
-        mc.fontRendererObj.FONT_HEIGHT + 2,
-        preview = { FontUtil.drawStringWithShadow("10ᝐ", 0.0, 0.0) }
-    ) {
-        override fun renderHud() {
-            if (!inSkyblock || !stacks.enabled || SkyblockPlayer.stacks.isEmpty()) return
-            FontUtil.drawStringWithShadow(SkyblockPlayer.stacks, 0.0, 0.0)
-        }
-    }
-
-    @RegisterHudElement
-    object SalvationHud : HudElement(
-        this, 0, 0,
-        mc.fontRendererObj.getStringWidth("T3!"),
-        mc.fontRendererObj.FONT_HEIGHT + 2,
-        preview = { FontUtil.drawStringWithShadow("T3!", 0.0, 0.0) }
-    ) {
-        override fun renderHud() {
-            if (!inSkyblock || !salvation.enabled || SkyblockPlayer.salvation == 0) return
-            FontUtil.drawStringWithShadow("T${SkyblockPlayer.salvation}!", 0.0, 0.0)
-        }
-    }
-
-    @RegisterHudElement
-    object SecretsHud : HudElement(
-        this, 0, 0,
-        mc.fontRendererObj.getStringWidth("5/10 Secrets"),
-        mc.fontRendererObj.FONT_HEIGHT + 2,
-        preview = {
-            if (sbaStyle.enabled) {
-                drawItemStackWithText(ItemStack(Blocks.chest), 0.0, 0.0)
-                FontUtil.drawStringWithShadow("§7Secrets", 16.0, 0.0)
-                val textWidth = FontUtil.getStringWidth("Secrets")
-                val totalWidth = FontUtil.getStringWidth("5/10")
-                FontUtil.drawStringWithShadow("§e5§7/§e10", 16.0 + 2.0 + textWidth / 2.0 - totalWidth / 2.0, 11.0)
-            } else {
-                FontUtil.drawStringWithShadow("§e5/10 Secrets", 0.0, 0.0)
-            }
-        }
-    ) {
-        override fun renderHud() {
-            if (!inDungeons || inBoss || !secrets.enabled) return
-            val colour = when (currentSecrets / maxSecrets.toDouble()) {
-                in 0.0..0.5 -> "§c"
-                in 0.5..0.75 -> "§e"
-                else -> "§a"
-            }
-            if (sbaStyle.enabled) {
-                drawItemStackWithText(ItemStack(Blocks.chest), 0.0, 0.0)
-                FontUtil.drawStringWithShadow("§7Secrets", 16.0, 0.0)
-                val secretsText = if (currentSecrets > -1) "$colour$currentSecrets§7/$colour$maxSecrets" else "§7Unknown"
-                val textWidth = FontUtil.getStringWidth("Secrets")
-                val totalWidth = FontUtil.getStringWidth(secretsText)
-                FontUtil.drawStringWithShadow(secretsText, 16.0 + 2.0 + textWidth / 2.0 - totalWidth / 2.0, 11.0)
-            } else if (currentSecrets > -1) {
-                FontUtil.drawStringWithShadow("$colour$currentSecrets/$maxSecrets Secrets", 0.0, 0.0)
-            }
-        }
-
-        override fun setDimensions() {
-            if (sbaStyle.enabled) {
-                this.width = 16 + 2 + FontUtil.getStringWidth("Secrets")
-                this.height = FontUtil.fontHeight * 2 + 2
-            } else {
-                this.width = FontUtil.getStringWidth("5/10 Secrets")
-                this.height = FontUtil.fontHeight + 2
-            }
-        }
-    }
-
     private fun Number.commas(): String = NumberFormat.getInstance(Locale.US).format(this)
-
-    fun String.formatMana(): String = this.split(" (", ")").let { "§b${it[0]} (§6${it[1]}§b)" } // temp maybe
 }

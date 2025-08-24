@@ -31,7 +31,7 @@ class Notification( // todo recode
         GlStateManager.disableLighting()
         GlStateManager.blendFunc(GL11.GL_SRC_ALPHA, GL11.GL_ONE_MINUS_SRC_ALPHA)
 
-        HUDRenderUtils.renderRect(x, y, width, height, Color(ColorUtil.bgColor)) // bg
+        HUDRenderUtils.renderRect(x, y, width, height, ColorUtil.bgColor) // bg
         HUDRenderUtils.renderRectBorder(x, y, width, height, 1.0, this.type.getColour()) // border
 
         //easing stuff

@@ -22,11 +22,11 @@ public abstract class MixinEntityLivingBase extends MixinEntity {
     @Inject(method = "getArmSwingAnimationEnd()I", at = @At("HEAD"), cancellable = true)
     public void adjustSwingLength(CallbackInfoReturnable<Integer> cir) {
         if (!Animations.INSTANCE.getEnabled()) return;
-        int length = Animations.INSTANCE.getIgnoreHaste().getValue() ? 6 : this.isPotionActive(Potion.digSpeed) ?
+        int length = Animations.INSTANCE.getIgnoreHaste() ? 6 : this.isPotionActive(Potion.digSpeed) ?
                 6 - (1 + this.getActivePotionEffect(Potion.digSpeed).getAmplifier()) :
                 (this.isPotionActive(Potion.digSlowdown) ?
                         6 + (1 + this.getActivePotionEffect(Potion.digSlowdown).getAmplifier()) * 2 :
                         6);
-        cir.setReturnValue(Math.max((int) (length * Math.exp(-Animations.INSTANCE.getCustomSpeed().getValue())), 1));
+        cir.setReturnValue(Math.max((int) (length * Math.exp(-Animations.INSTANCE.getCustomSpeed())), 1));
     }
 }

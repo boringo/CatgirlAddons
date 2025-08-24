@@ -2,8 +2,7 @@ package catgirlroutes.utils
 
 import catgirlroutes.CatgirlRoutes.Companion.mc
 import catgirlroutes.utils.ChatUtils.modMessage
-import catgirlroutes.utils.Utils.extraAttributes
-import catgirlroutes.utils.Utils.unformattedName
+import catgirlroutes.utils.ClientListener.scheduleTask
 import net.minecraft.block.BlockAir
 import net.minecraft.client.Minecraft
 import net.minecraft.client.settings.KeyBinding
@@ -52,8 +51,17 @@ object PlayerUtils {
                 }
             }
         }
-        modMessage("$name not found.")
+        modMessage("$name §cnot found.")
         return SwapState.UNKNOWN
+    }
+
+    fun swapFromName(name: String, action: () -> Unit) {
+        val state = swapFromName(name)
+        when(state) {
+            SwapState.SWAPPED -> scheduleTask(1) { action() }
+            SwapState.ALREADY_HELD -> action()
+            else -> return
+        }
     }
 
     fun swapToSlot(slot: Int): SwapState {
@@ -78,11 +86,23 @@ object PlayerUtils {
     val ItemStack?.skyblockID: String
         get() = this?.extraAttributes?.getString("id") ?: ""
 
-    fun isHolding(vararg id: String): Boolean =
-        mc.thePlayer?.heldItem?.skyblockID in id
+    fun isHolding(vararg id: String?): Boolean =
+        heldItem?.skyblockID in id
+
+    val heldItem get() = mc.thePlayer?.heldItem
 
     fun rightClick() {
         KeyBinding.onTick(mc.gameSettings.keyBindUseItem.keyCode)
+    }
+
+    fun rightClick2() {
+        val clickMouse: Method = try {
+            Minecraft::class.java.getDeclaredMethod("func_147121_ag")
+        } catch (e: NoSuchMethodException) {
+            Minecraft::class.java.getDeclaredMethod("rightClickMouse")
+        }
+        clickMouse.isAccessible = true
+        clickMouse.invoke(mc)
     }
 
     fun leftClick() {

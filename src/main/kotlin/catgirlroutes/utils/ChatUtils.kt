@@ -7,7 +7,7 @@ import catgirlroutes.utils.ChatUtils.chatMessage
 import catgirlroutes.utils.ChatUtils.command
 import catgirlroutes.utils.ChatUtils.modMessage
 import catgirlroutes.utils.ChatUtils.sendChat
-import catgirlroutes.utils.Utils.runOnMCThread
+import net.minecraft.event.ClickEvent
 import net.minecraft.event.HoverEvent
 import net.minecraft.util.*
 import net.minecraftforge.client.ClientCommandHandler
@@ -76,15 +76,8 @@ object ChatUtils {
         return when (ClickGui.prefixStyle.index) {
             0 -> CatgirlRoutes.CHAT_PREFIX;
             1 -> CatgirlRoutes.SHORT_PREFIX
-            else -> reformatString( ClickGui.customPrefix.text)
+            else -> reformatString( ClickGui.customPrefix)
         }
-    }
-
-    /**
-     * Remove control codes from the [receiver][String] with the [vanilla function][StringUtils.stripControlCodes] for it.
-     */
-    fun String.stripControlCodes(): String {
-        return StringUtils.stripControlCodes(this)
     }
 
     /**
@@ -131,7 +124,7 @@ object ChatUtils {
      * @see chatMessage
      */
     fun devMessage(message: Any?) {
-        if (!ClickGui.devMode.enabled) return;
+        if (!ClickGui.devMode) return;
         modMessage(message, prefix = "§5[§dCga§cDev§5]")
     }
 
@@ -140,7 +133,7 @@ object ChatUtils {
      * @see chatMessage
      */
     fun debugMessage(message: Any?) {
-        if (!ClickGui.debugMode.enabled) return;
+        if (!ClickGui.debugMode) return;
         modMessage(message, prefix = "§5[§dCga§fDebug§5]")
     }
 
@@ -189,6 +182,17 @@ object ChatUtils {
         val style = ChatStyle()
         style.chatHoverEvent = HoverEvent(HoverEvent.Action.SHOW_TEXT, ChatComponentText(hoverText))
         message.chatStyle = style
+        return message
+    }
+
+    fun createClickableText(text: String, hoverText: String, action: String): IChatComponent {
+        val message: IChatComponent = ChatComponentText(text)
+
+        val style = ChatStyle()
+        style.chatHoverEvent = HoverEvent(HoverEvent.Action.SHOW_TEXT, ChatComponentText(hoverText))
+        style.chatClickEvent = ClickEvent(ClickEvent.Action.RUN_COMMAND, action)
+        message.chatStyle = style
+        chatMessage(message)
         return message
     }
 }

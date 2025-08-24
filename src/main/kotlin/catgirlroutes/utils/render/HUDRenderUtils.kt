@@ -1,6 +1,10 @@
 package catgirlroutes.utils.render
 
 import catgirlroutes.CatgirlRoutes.Companion.mc
+import catgirlroutes.ui.Screen.Companion.CLICK_GUI_SCALE
+import catgirlroutes.ui.clickgui.util.ColorUtil
+import catgirlroutes.ui.clickgui.util.ColorUtil.withAlpha
+import catgirlroutes.ui.clickgui.util.FontUtil
 import net.minecraft.client.gui.Gui
 import net.minecraft.client.gui.ScaledResolution
 import net.minecraft.client.renderer.*
@@ -8,6 +12,8 @@ import net.minecraft.client.renderer.vertex.DefaultVertexFormats
 import net.minecraft.inventory.Slot
 import net.minecraft.item.ItemStack
 import net.minecraft.util.ResourceLocation
+import net.minecraftforge.fml.client.config.GuiUtils.drawGradientRect
+import org.lwjgl.opengl.Display
 import org.lwjgl.opengl.GL11
 import org.lwjgl.opengl.GL14
 import java.awt.Color
@@ -31,6 +37,11 @@ object HUDRenderUtils {
 
     private val tessellator: Tessellator = Tessellator.getInstance()
     private val worldRenderer: WorldRenderer = tessellator.worldRenderer
+
+    val sr get() = ScaledResolution(mc)
+    val scale get() = CLICK_GUI_SCALE / sr.scaleFactor
+    val displayWidth get() = Display.getDesktopDisplayMode().width
+    val displayHeight get() = Display.getDesktopDisplayMode().height
 
     fun renderRect(x: Double, y: Double, w: Double, h: Double, color: Color) {
         if (color.alpha == 0) return
@@ -88,34 +99,63 @@ object HUDRenderUtils {
         tessellator.draw()
     }
 
-    data class Scissor(val x: Double, val y: Double, val width: Double, val height: Double, val context: Int)
-    private val scissorList = mutableListOf(Scissor(0.0, 0.0, 16000.0, 16000.0, 0))
+    data class Scissor(val x: Float, val y: Float, val width: Float, val height: Float, val context: Int)
 
-    fun scissor(x: Double, y: Double, width: Double, height: Double): Scissor {
-        val scale = mc.displayHeight / ScaledResolution(mc).scaledHeight.toDouble()
+    private val scissorList = mutableListOf(Scissor(0.0f, 0.0f, 16000.0f, 16000.0f, 0))
+
+    private fun intersectScissors(a: Scissor, b: Scissor): Scissor? {
+        val nx = maxOf(a.x, b.x)
+        val ny = maxOf(a.y, b.y)
+        val nr = minOf(a.x + a.width, b.x + b.width)
+        val nb = minOf(a.y + a.height, b.y + b.height)
+        val nw = nr - nx
+        val nh = nb - ny
+        return if (nw > 0 && nh > 0) Scissor(nx, ny, nw, nh, 0) else null
+    }
+
+    fun scissor(x: Number, y: Number, width: Number, height: Number): Scissor {
+        val scale = sr.scaleFactor
+
+        val parentScissor = scissorList.last()
+
+        val newScissor = intersectScissors(parentScissor, Scissor(x.toFloat(), y.toFloat(), width.toFloat(), height.toFloat(), 0))
+            ?: return Scissor(0.0f, 0.0f, 0.0f, 0.0f, scissorList.size)
+
         GL11.glEnable(GL11.GL_SCISSOR_TEST)
         GL11.glScissor(
-            (x * scale).toInt(),
-            (mc.displayHeight - (height + y) * scale).toInt() ,
-            (width * scale).toInt(),
-            (height * scale).toInt()
+            (newScissor.x * scale).toInt(),
+            (mc.displayHeight - (newScissor.height + newScissor.y) * scale).toInt(),
+            (newScissor.width * scale).toInt(),
+            (newScissor.height * scale).toInt()
         )
-        val scissor = Scissor(x, y, width, height, scissorList.size)
+
+        val scissor = newScissor.copy(context = scissorList.size)
         scissorList.add(scissor)
         return scissor
     }
 
-    fun resetScissor(scissor: Scissor) {
-        val nextScissor = scissorList[scissor.context - 1]
-        val scale = mc.displayHeight / ScaledResolution(mc).scaledHeight.toDouble()
-        GL11.glScissor(
-            (nextScissor.x * scale).toInt(),
-            (nextScissor.y * scale).toInt(),
-            (nextScissor.width * scale).toInt(),
-            (nextScissor.height * scale).toInt()
-        )
-        GL11.glDisable(GL11.GL_SCISSOR_TEST)
+    fun resetScissor() {
         scissorList.removeLast()
+        val scale = sr.scaleFactor
+        if (scissorList.isNotEmpty()) {
+            val nextScissor = scissorList.last()
+            GL11.glScissor(
+                (nextScissor.x * scale).toInt(),
+                (mc.displayHeight - (nextScissor.height + nextScissor.y) * scale).toInt(),
+                (nextScissor.width * scale).toInt(),
+                (nextScissor.height * scale).toInt()
+            )
+        } else {
+            GL11.glDisable(GL11.GL_SCISSOR_TEST)
+        }
+    }
+
+    fun disableScissor() {
+        GL11.glDisable(GL11.GL_SCISSOR_TEST)
+    }
+
+    fun enableScissor() {
+        GL11.glEnable(GL11.GL_SCISSOR_TEST)
     }
 
     /**
@@ -190,74 +230,111 @@ object HUDRenderUtils {
         drawRoundedOutline(x, y, width, height, radius, thickness, colour2)
     }
 
+    fun drawRoundedBorderedRect(x: Double, y: Double, width: Double, height: Double, radii: Radii, thickness: Double, colour1: Color, colour2: Color) {
+        drawRoundedRect(x, y, width, height, radii, colour1)
+        drawRoundedOutline(x, y, width, height, radii, thickness, colour2)
+    }
+
     fun drawRoundedRect(x: Double, y: Double, width: Double, height: Double, radius: Double, colour: Color) {
+        drawRoundedRect(x, y, width, height, Radii(radius, radius, radius, radius), colour)
+    }
+
+    fun drawRoundedRect(x: Double, y: Double, width: Double, height: Double, radii: Radii, colour: Color) {
         if (colour.alpha == 0) return
-        val x1 = x + width
-        val y1 = y + height
         GlStateManager.pushMatrix()
-        GlStateManager.scale(0.5, 0.5, 0.5)
-        val scaledX = x * 2.0
-        val scaledY = y * 2.0
-        val scaledX1 = x1 * 2.0
-        val scaledY1 = y1 * 2.0
         GlStateManager.enableBlend()
         GlStateManager.disableTexture2D()
-        GL11.glEnable(GL11.GL_LINE_SMOOTH)
-        setColor(colour.rgb)
-        GL11.glEnable(GL11.GL_POLYGON_SMOOTH)
-        GL11.glBegin(GL11.GL_POLYGON)
+        GlStateManager.tryBlendFuncSeparate(770, 771, 1, 0)
 
-        drawCorner(scaledX + radius, scaledY + radius, radius, 0, 90, 3, invertX = true, invertY = true)
-        drawCorner(scaledX + radius, scaledY1 - radius, radius, 90, 180, 3, invertX = true, invertY = true)
-        drawCorner(scaledX1 - radius, scaledY1 - radius, radius, 0, 90, 3)
-        drawCorner(scaledX1 - radius, scaledY + radius, radius, 90, 180, 3)
+        val color = colour.rgb
+        var x1 = x
+        var y1 = y
+        val x2 = x1 + width
+        val y2 = y1 + height
+        val f = ((color shr 24) and 0xFF) / 255.0f
+        val f2 = ((color shr 16) and 0xFF) / 255.0f
+        val f3 = ((color shr 8) and 0xFF) / 255.0f
+        val f4 = (color and 0xFF) / 255.0f
 
-        GL11.glEnd()
-        GlStateManager.disableBlend()
-        GL11.glDisable(GL11.GL_POLYGON_SMOOTH)
-        GL11.glDisable(GL11.GL_LINE_SMOOTH)
+        GL11.glPushAttrib(0);
+        GL11.glScaled(0.5, 0.5, 0.5);
+
+        x1 *= 2.0
+        y1 *= 2.0
+        val x2Scaled = x2 * 2.0
+        val y2Scaled = y2 * 2.0
+
+        GL11.glDisable(3553);
+        GL11.glColor4f(f2, f3, f4, f);
+        GL11.glEnable(2848);
+        GL11.glBegin(9);
+
+        drawArc(x1 + radii.topLeft, y1 + radii.topLeft, -radii.topLeft, -radii.topLeft, 0, 90, 3)
+        drawArc(x1 + radii.bottomLeft, y2Scaled - radii.bottomLeft, -radii.bottomLeft, -radii.bottomLeft, 90, 180, 3)
+        drawArc(x2Scaled - radii.bottomRight, y2Scaled - radii.bottomRight, radii.bottomRight, radii.bottomRight, 0, 90, 3)
+        drawArc(x2Scaled - radii.topRight, y1 + radii.topRight, radii.topRight, radii.topRight, 90, 180, 3)
+
+        GL11.glEnd();
+        GL11.glEnable(3553)
+        GL11.glDisable(2848)
+        GL11.glEnable(3553)
+        GL11.glScaled(2.0, 2.0, 2.0)
+        GL11.glPopAttrib()
+        GL11.glColor4f(1.0f, 1.0f, 1.0f, 1.0f)
         GlStateManager.enableTexture2D()
-        GlStateManager.scale(2.0, 2.0, 2.0)
-        GlStateManager.resetColor()
+        GlStateManager.disableBlend()
         GlStateManager.popMatrix()
     }
 
     fun drawRoundedOutline(x: Double, y: Double, width: Double, height: Double, radius: Double, thickness: Double, colour: Color) {
-        val x1 = x + width
-        val y1 = y + height
+        drawRoundedOutline(x, y, width, height, Radii(radius, radius, radius, radius), thickness, colour)
+    }
+
+    fun drawRoundedOutline(x: Double, y: Double, width: Double, height: Double, radii: Radii, thickness: Double, colour: Color) {
+        if (colour.alpha == 0) return
         GlStateManager.pushMatrix()
-        GlStateManager.scale(0.5, 0.5, 0.5)
-        val scaledX = x * 2.0
-        val scaledY = y * 2.0
-        val scaledX1 = x1 * 2.0
-        val scaledY1 = y1 * 2.0
         GlStateManager.enableBlend()
         GlStateManager.disableTexture2D()
-        setColor(colour.rgb)
-        GL11.glEnable(GL11.GL_LINE_SMOOTH)
+        GlStateManager.tryBlendFuncSeparate(770, 771, 1, 0)
+        var x2 = x + width
+        var y2 = y + height
+        val f: Float = (colour.rgb shr 24 and 0xFF) / 255.0f
+        val f2: Float = (colour.rgb shr 16 and 0xFF) / 255.0f
+        val f3: Float = (colour.rgb shr 8 and 0xFF) / 255.0f
+        val f4: Float = (colour.rgb and 0xFF) / 255.0f
+        GL11.glPushAttrib(0)
+        GL11.glScaled(0.5, 0.5, 0.5)
+        val x1 = x * 2.0f
+        val y1 = y * 2.0f
+        x2 *= 2.0
+        y2 *= 2.0
         GL11.glLineWidth(thickness.toFloat())
-        GL11.glBegin(GL11.GL_LINE_LOOP)
+        GL11.glDisable(3553)
+        GL11.glColor4f(f2, f3, f4, f)
+        GL11.glEnable(2848)
+        GL11.glBegin(2)
 
-        drawCorner(scaledX + radius, scaledY + radius, radius, 0, 90, 3, invertX = true, invertY = true)
-        drawCorner(scaledX + radius, scaledY1 - radius, radius, 90, 180, 3, invertX = true, invertY = true)
-        drawCorner(scaledX1 - radius, scaledY1 - radius, radius, 0, 90, 3)
-        drawCorner(scaledX1 - radius, scaledY + radius, radius, 90, 180, 3)
+        drawArc(x1 + radii.topLeft, y1 + radii.topLeft, -radii.topLeft, -radii.topLeft, 0, 90, 3)
+        drawArc(x1 + radii.bottomLeft, y2 - radii.bottomLeft, -radii.bottomLeft, -radii.bottomLeft, 90, 180, 3)
+        drawArc(x2 - radii.bottomRight, y2 - radii.bottomRight, radii.bottomRight, radii.bottomRight, 0, 90, 3)
+        drawArc(x2 - radii.topRight, y1 + radii.topRight, radii.topRight, radii.topRight, 90, 180, 3)
 
-        GL11.glEnd()
-        GlStateManager.disableBlend()
-        GL11.glDisable(GL11.GL_LINE_SMOOTH)
+        GL11.glEnd();
+        GL11.glEnable(3553)
+        GL11.glDisable(2848)
+        GL11.glEnable(3553)
+        GL11.glScaled(2.0, 2.0, 2.0)
+        GL11.glPopAttrib()
+        GL11.glColor4f(1.0f, 1.0f, 1.0f, 1.0f)
         GlStateManager.enableTexture2D()
-        GlStateManager.scale(2.0, 2.0, 2.0)
-        GlStateManager.resetColor()
+        GlStateManager.disableBlend()
         GlStateManager.popMatrix()
     }
 
-    private fun drawCorner(cx: Double, cy: Double, radius: Double, startAngle: Int, endAngle: Int, step: Int, invertX: Boolean = false, invertY: Boolean = false) {
+    private fun drawArc(centerX: Double, centerY: Double, radiusX: Double, radiusY: Double, startAngle: Int, endAngle: Int, step: Int) {
         for (i in startAngle..endAngle step step) {
-            val angle = i * Math.PI / 180.0
-            val xOffset = sin(angle) * radius * if (invertX) -1.0 else 1.0
-            val yOffset = cos(angle) * radius * if (invertY) -1.0 else 1.0
-            GL11.glVertex2d(cx + xOffset, cy + yOffset)
+            val angle = Math.toRadians(i.toDouble())
+            GL11.glVertex2d(centerX + sin(angle) * radiusX, centerY + cos(angle) * radiusY)
         }
     }
 
@@ -289,6 +366,8 @@ object HUDRenderUtils {
         filter: Int
     ) {
         GlStateManager.enableBlend()
+        setColor(Color.WHITE.rgb)
+
         GL14.glBlendFuncSeparate(
             GL11.GL_SRC_ALPHA,
             GL11.GL_ONE_MINUS_SRC_ALPHA,
@@ -534,4 +613,142 @@ object HUDRenderUtils {
         GlStateManager.disableTexture2D()
         GlStateManager.setActiveTexture(OpenGlHelper.defaultTexUnit)
     }
+
+    fun drawHoveringText(
+        textLines: List<String>,
+        x: Int,
+        y: Int,
+        scrollOffset: Int
+    ) {
+        drawHoveringText(
+            textLines,
+            x,
+            y - scrollOffset,
+            screenHeight = sr.scaledHeight - scrollOffset
+        )
+    }
+
+    fun drawHoveringText(
+        textLines: List<String>,
+        x: Int,
+        y: Int,
+        screenWidth: Int = sr.scaledWidth,
+        screenHeight: Int = sr.scaledHeight,
+        maxTextWidth: Int = -1,
+        themed: Boolean = true,
+        yOffset: Double = 0.0
+    ) {
+        if (textLines.isEmpty()) return
+        GlStateManager.pushMatrix()
+        GlStateManager.disableRescaleNormal()
+        GlStateManager.translate(0.0, 0.0, 300.0)
+
+        var tooltipTextWidth = textLines.maxOfOrNull { FontUtil.getStringWidth(it) } ?: 0
+
+        var needsWrap = false
+        var titleLinesCount = 1
+        var tooltipX = x + 12
+
+        if (tooltipX + tooltipTextWidth + 4 > screenWidth) {
+            tooltipX = x - 16 - tooltipTextWidth
+            if (tooltipX < 4) { // if the tooltip doesn't fit on the screen
+                tooltipTextWidth = if (x > screenWidth / 2) {
+                    x - 12 - 8
+                } else {
+                    screenWidth - 16 - x
+                }
+                needsWrap = true
+            }
+        }
+
+        if (maxTextWidth > 0 && tooltipTextWidth > maxTextWidth) {
+            tooltipTextWidth = maxTextWidth
+            needsWrap = true
+        }
+
+        val finalTextLines = if (needsWrap) {
+            var wrappedTooltipWidth = 0
+            val wrappedTextLines = mutableListOf<String>()
+
+            textLines.forEachIndexed { i, textLine ->
+                val wrappedLine = mc.fontRendererObj.listFormattedStringToWidth(textLine, tooltipTextWidth)
+                if (i == 0) {
+                    titleLinesCount = wrappedLine.size
+                }
+
+                wrappedLine.forEach { line ->
+                    val lineWidth = FontUtil.getStringWidth(line)
+                    if (lineWidth > wrappedTooltipWidth) {
+                        wrappedTooltipWidth = lineWidth
+                    }
+                    wrappedTextLines.add(line)
+                }
+            }
+
+            tooltipTextWidth = wrappedTooltipWidth
+
+            tooltipX = if (x > screenWidth / 2) {
+                x - 16 - tooltipTextWidth
+            } else {
+                x + 12
+            }
+
+            wrappedTextLines
+        } else {
+            textLines
+        }
+
+        var tooltipY = y - 12
+        var tooltipHeight = 8
+
+        if (finalTextLines.size > 1) {
+            tooltipHeight += (finalTextLines.size - 1) * 10
+            if (finalTextLines.size > titleLinesCount) {
+                tooltipHeight += 2 // gap between title lines and next lines
+            }
+        }
+
+        if (tooltipY + tooltipHeight + 6 > screenHeight) {
+            tooltipY = screenHeight - tooltipHeight - 6
+        }
+
+        if (!themed) {
+            val backgroundColor = 0xF0100010.toInt()
+            drawGradientRect(0, tooltipX - 3, tooltipY - 4, tooltipX + tooltipTextWidth + 3, tooltipY - 3, backgroundColor, backgroundColor)
+            drawGradientRect(0, tooltipX - 3, tooltipY + tooltipHeight + 3, tooltipX + tooltipTextWidth + 3, tooltipY + tooltipHeight + 4, backgroundColor, backgroundColor)
+            drawGradientRect(0, tooltipX - 3, tooltipY - 3, tooltipX + tooltipTextWidth + 3, tooltipY + tooltipHeight + 3, backgroundColor, backgroundColor)
+            drawGradientRect(0, tooltipX - 4, tooltipY - 3, tooltipX - 3, tooltipY + tooltipHeight + 3, backgroundColor, backgroundColor)
+            drawGradientRect(0, tooltipX + tooltipTextWidth + 3, tooltipY - 3, tooltipX + tooltipTextWidth + 4, tooltipY + tooltipHeight + 3, backgroundColor, backgroundColor)
+
+            val borderColorStart = 0x505000FF
+            val borderColorEnd = (borderColorStart and 0xFEFEFE) shr 1 or (borderColorStart and 0xFF000000.toInt())
+            drawGradientRect(0, tooltipX - 3, tooltipY - 3 + 1, tooltipX - 3 + 1, tooltipY + tooltipHeight + 3 - 1, borderColorStart, borderColorEnd)
+            drawGradientRect(0, tooltipX + tooltipTextWidth + 2, tooltipY - 3 + 1, tooltipX + tooltipTextWidth + 3, tooltipY + tooltipHeight + 3 - 1, borderColorStart, borderColorEnd)
+            drawGradientRect(0, tooltipX - 3, tooltipY - 3, tooltipX + tooltipTextWidth + 3, tooltipY - 3 + 1, borderColorStart, borderColorStart)
+            drawGradientRect(0, tooltipX - 3, tooltipY + tooltipHeight + 2, tooltipX + tooltipTextWidth + 3, tooltipY + tooltipHeight + 3, borderColorEnd, borderColorEnd)
+        } else {
+            drawRoundedBorderedRect(tooltipX - 3.0, tooltipY - 3.0, tooltipTextWidth + 6.0, tooltipHeight + 6.0, 3.0, 1.0, ColorUtil.buttonColor.withAlpha(0.94f), ColorUtil.clickGUIColor)
+        }
+
+        finalTextLines.forEachIndexed { lineNumber, line ->
+            FontUtil.drawStringWithShadow(line, tooltipX.toDouble(), tooltipY.toDouble(), -1)
+
+            if (lineNumber + 1 == titleLinesCount) {
+                tooltipY += 2
+            }
+
+            tooltipY += 10
+        }
+
+        GlStateManager.enableRescaleNormal()
+        GlStateManager.popMatrix()
+    }
 }
+
+data class Radii(
+    val topLeft: Double,
+    val topRight: Double = topLeft,
+    val bottomRight: Double = topLeft,
+    val bottomLeft: Double = topLeft
+)
+

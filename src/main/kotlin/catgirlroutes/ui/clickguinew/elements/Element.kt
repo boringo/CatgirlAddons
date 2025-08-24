@@ -2,9 +2,16 @@ package catgirlroutes.ui.clickguinew.elements
 
 import catgirlroutes.module.settings.Setting
 import catgirlroutes.module.settings.impl.ColorSetting
-import catgirlroutes.module.settings.impl.StringSelectorSetting
+import catgirlroutes.module.settings.impl.SelectorSetting
+import catgirlroutes.ui.clickgui.util.FontUtil.wrapText
+import catgirlroutes.ui.clickgui.util.MouseUtils.mouseX
+import catgirlroutes.ui.clickgui.util.MouseUtils.mouseY
 import catgirlroutes.ui.clickguinew.ClickGUI
+import catgirlroutes.utils.render.HUDRenderUtils.disableScissor
+import catgirlroutes.utils.render.HUDRenderUtils.drawHoveringText
+import catgirlroutes.utils.render.HUDRenderUtils.enableScissor
 import net.minecraft.client.renderer.GlStateManager
+import org.lwjgl.opengl.GL11
 
 abstract class Element<S: Setting<*>>(
     val parent: ModuleButton,
@@ -16,7 +23,7 @@ abstract class Element<S: Setting<*>>(
     var x = 0.0
     var y = 0.0
 
-    val width = this.parent.width
+    var width = this.parent.width * 0.836
     var height: Double
 
     var displayName: String = this.setting.name
@@ -29,8 +36,10 @@ abstract class Element<S: Setting<*>>(
     val yAbsolute: Double
         get() = this.y + this.parent.window.y
 
+    val mouseXRel: Int get() = mouseX - xAbsolute.toInt()
+    val mouseYRel: Int get() = mouseY - yAbsolute.toInt()
+
     private var hoverStartTime: Long? = null
-    private var description = ClickGUI.Description("", 0.0, 0.0)
 
     init {
         this.height = when (this.type) {
@@ -38,6 +47,7 @@ abstract class Element<S: Setting<*>>(
             ElementType.SLIDER -> 18.0
             ElementType.BOOLEAN -> 11.0
             ElementType.KEY_BIND -> 11.0
+            ElementType.HUD -> if (setting.name.isEmpty()) -5.0 else 11.0
             else -> DEFAULT_HEIGHT
         }
     }
@@ -47,7 +57,7 @@ abstract class Element<S: Setting<*>>(
         when (type) {
             ElementType.SELECTOR -> {
                 height = if (extended)
-                    ((setting as StringSelectorSetting).options.size * DEFAULT_HEIGHT + DEFAULT_HEIGHT)
+                    ((setting as SelectorSetting).options.size * DEFAULT_HEIGHT + DEFAULT_HEIGHT)
                 else
                     DEFAULT_HEIGHT
             }
@@ -63,20 +73,22 @@ abstract class Element<S: Setting<*>>(
         }
     }
 
-    fun drawScreen(mouseX: Int, mouseY: Int, partialTicks: Float) : Double {
+    fun draw() : Double {
         GlStateManager.pushMatrix()
         GlStateManager.translate(this.x, this.y, 0.0)
 
-        val elementLength = renderElement(mouseX, mouseY, partialTicks)
+        val elementLength = renderElement()
 
         if (isHoveredTemp(mouseX, mouseY) && this.setting.description != null && this.parent.extended) {
-            if (hoverStartTime == null) hoverStartTime = System.currentTimeMillis()
+            val currentTime = System.currentTimeMillis()
+            hoverStartTime = hoverStartTime ?: currentTime
 
-            if (System.currentTimeMillis() - hoverStartTime!! >= 1000) {
-                clickGui.description[this.setting.name] = ClickGUI.Description(this.setting.description!!, mouseX.toDouble(), mouseY.toDouble())
+            if (currentTime - hoverStartTime!! >= 1000) {
+                disableScissor()
+                drawHoveringText(wrapText(setting.description!!, 150.0), mouseX - xAbsolute.toInt(), mouseY - yAbsolute.toInt())
+                enableScissor()
             }
         } else {
-            clickGui.description[this.setting.name] = ClickGUI.Description("", 0.0, 0.0)
             hoverStartTime = null
         }
 
@@ -84,19 +96,23 @@ abstract class Element<S: Setting<*>>(
         return elementLength + 5.0
     }
 
-    protected open fun renderElement(mouseX: Int, mouseY: Int, partialTicks: Float) : Double { return this.height }
+    protected open fun renderElement() : Double { return this.height }
 
-    open fun mouseClicked(mouseX: Int, mouseY: Int, mouseButton: Int): Boolean {
-        return this.isHovered(mouseX, mouseY)
+    open fun mouseClicked(mouseButton: Int): Boolean {
+        return this.isHovered()
     }
 
-    open fun mouseReleased(mouseX: Int, mouseY: Int, state: Int) {}
+    open fun mouseReleased(state: Int) {}
 
     open fun keyTyped(typedChar: Char, keyCode: Int): Boolean { return false }
 
-    open fun mouseClickMove(mouseX: Int, mouseY: Int, clickedMouseButton: Int, timeSinceLastClick: Long) {  }
+    open fun mouseClickMove(mouseButton: Int, timeSinceLastClick: Long) {  }
 
-    private fun isHovered(mouseX: Int, mouseY: Int): Boolean {
+    open fun onGuiClosed() {  }
+
+    open fun getElementHeight(): Double = height
+
+    private fun isHovered(): Boolean {
         return mouseX >= this.xAbsolute && mouseX <= this.xAbsolute + this.width && mouseY >= this.yAbsolute && mouseY <= this.yAbsolute + this.height
     }
 

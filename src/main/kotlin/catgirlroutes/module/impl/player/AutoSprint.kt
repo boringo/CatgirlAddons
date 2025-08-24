@@ -13,8 +13,8 @@ import net.minecraftforge.fml.common.gameevent.TickEvent
  */
 object AutoSprint : Module(
     "Auto Sprint",
-    category = Category.PLAYER,
-    description = "A simple auto sprint module."
+    Category.PLAYER,
+    "A simple auto sprint module."
 ){
     @SubscribeEvent
     fun onTick(event: TickEvent.ClientTickEvent) {

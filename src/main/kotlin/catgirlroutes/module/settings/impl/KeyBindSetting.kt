@@ -15,7 +15,7 @@ class KeyBindSetting(
     visibility: Visibility = Visibility.VISIBLE,
 ) : Setting<Keybinding>(name, description, visibility) {
 
-    constructor(name: String, key: Int, description: String? = null, visibility: Visibility = Visibility.VISIBLE) : this(name, Keybinding(key), description, visibility)
+    constructor(name: String, key: Int = Keyboard.KEY_NONE, description: String? = null, visibility: Visibility = Visibility.VISIBLE) : this(name, Keybinding(key), description, visibility)
 
     override var value: Keybinding = default
         set(value) {

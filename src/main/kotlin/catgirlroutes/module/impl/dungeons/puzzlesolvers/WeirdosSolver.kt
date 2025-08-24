@@ -9,17 +9,16 @@ import catgirlroutes.utils.BlockAura.blockArray
 import catgirlroutes.utils.ChatUtils.modMessage
 import catgirlroutes.utils.EntityAura
 import catgirlroutes.utils.EntityAura.entityArray
-import catgirlroutes.utils.Utils.noControlCodes
-import catgirlroutes.utils.VecUtils.addRotationCoords
+import catgirlroutes.utils.addRotationCoords
 import catgirlroutes.utils.dungeon.DungeonUtils.currentRoom
 import catgirlroutes.utils.dungeon.DungeonUtils.currentRoomName
 import catgirlroutes.utils.dungeon.DungeonUtils.inDungeons
+import catgirlroutes.utils.noControlCodes
 import catgirlroutes.utils.render.WorldRenderUtils.drawBoxAtBlock
 import net.minecraft.entity.item.EntityArmorStand
 import net.minecraft.network.play.client.C02PacketUseEntity
 import net.minecraft.util.BlockPos
 import net.minecraft.util.StringUtils.stripControlCodes
-import net.minecraftforge.client.event.ClientChatReceivedEvent
 import java.awt.Color
 
 object AutoWeirdos: Module(
@@ -44,15 +43,14 @@ object AutoWeirdos: Module(
     /**
      * Used to check incoming chat messages for solutions to the three weirdos puzzle.
      */
-    fun onChat(event: ClientChatReceivedEvent) {
-        if (event.type.toInt() == 2 || !inDungeons) return
+    fun onChat(message: String) {
+        if (!inDungeons) return
         if (currentRoomName != "Three Weirdos") return
-        val unformatted = stripControlCodes(event.message.unformattedText)
-        if (unformatted.contains("[NPC]")) {
-            val npcName = unformatted.substring(unformatted.indexOf("]") + 2, unformatted.indexOf(":"))
+        if (message.contains("[NPC]")) {
+            val npcName = message.substring(message.indexOf("]") + 2, message.indexOf(":"))
             var isSolution = false
             for (solution in solutions) {
-                if (unformatted.contains(solution)) {
+                if (message.contains(solution)) {
                     modMessage("§c§l${stripControlCodes(npcName)} §2has the blessing.")
                     isSolution = true
                     correctBozo = npcName
@@ -72,10 +70,10 @@ object AutoWeirdos: Module(
      * Handles the removal of the chests in the room and puts the correct chest back.
      */
     fun onTick() {
-        if (!inDungeons || !weirdosSolver.value) return
+        if (!inDungeons || !weirdosSolver) return
         if (currentRoomName != "Three Weirdos") return
         if (addedChest) return
-        if (!Puzzles.weirdosAuto.value) return
+        if (!Puzzles.weirdosAuto) return
 
         mc.theWorld.loadedEntityList
             .filter { it is EntityArmorStand && it.name.contains("CLICK") }
@@ -93,7 +91,7 @@ object AutoWeirdos: Module(
     }
 
     fun renderWorld() {
-        if (!inDungeons || !weirdosSolver.value) return
+        if (!inDungeons || !weirdosSolver) return
         if (currentRoomName != "Three Weirdos") return
         val correctNPC = mc.theWorld.loadedEntityList.find { it is EntityArmorStand && it.name.noControlCodes == correctBozo } ?: return
         val room = currentRoom ?: return
@@ -107,7 +105,7 @@ object AutoWeirdos: Module(
     fun onWorldChange() {
         bozos = mutableListOf()
         clickedBozos = mutableListOf()
-        removedChests = mutableListOf<BlockPos>()
+        removedChests = mutableListOf()
         correctBozo = null
         correctChest = null
         addedChest = false

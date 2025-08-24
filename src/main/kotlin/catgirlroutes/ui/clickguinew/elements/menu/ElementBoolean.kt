@@ -5,34 +5,34 @@ import catgirlroutes.ui.clickgui.util.ColorUtil
 import catgirlroutes.ui.clickguinew.elements.Element
 import catgirlroutes.ui.clickguinew.elements.ElementType
 import catgirlroutes.ui.clickguinew.elements.ModuleButton
-import catgirlroutes.ui.misc.elements.impl.MiscElementBoolean
-import java.awt.Color
+import catgirlroutes.ui.misc.elements.impl.boolean
+import catgirlroutes.ui.misc.elements.util.update
 
 class ElementBoolean(parent: ModuleButton, setting: BooleanSetting) :
     Element<BooleanSetting>(parent, setting, ElementType.BOOLEAN) {
 
-    private val booleanElement = MiscElementBoolean(
-        text = displayName,
-        enabled = this.setting.enabled,
-        width = 10.0,
-        height = 10.0,
-        thickness = 1.0,
-        radius = 3.0,
-        gap = 0.0,
-        colour = Color(ColorUtil.buttonColor)
-    )
-
-    override fun renderElement(mouseX: Int, mouseY: Int, partialTicks: Float): Double {
-        this.booleanElement.render(mouseX - xAbsolute.toInt(), mouseY - yAbsolute.toInt())
-        return super.renderElement(mouseX, mouseY, partialTicks)
-    }
-
-    override fun mouseClicked(mouseX: Int, mouseY: Int, mouseButton: Int): Boolean {
-        if (this.booleanElement.mouseClicked(mouseX - xAbsolute.toInt(), mouseY - yAbsolute.toInt(), mouseButton)) {
-            this.setting.toggle()
-            return true
+    private val booleanElement = boolean {
+        text = displayName
+        enabled = setting.enabled
+        width = 10.0
+        height = 10.0
+        thickness = 1.0
+        radius = 3.0
+        gap = 0.0
+        onClick {
+            setting.toggle()
         }
-        return super.mouseClicked(mouseX, mouseY, mouseButton)
     }
 
+    override fun renderElement(): Double {
+        this.booleanElement.update { // FIXME
+            outlineColour = ColorUtil.outlineColor
+            hoverColour = ColorUtil.clickGUIColor
+        }.draw(mouseXRel, mouseYRel)
+        return super.renderElement()
+    }
+
+    override fun mouseClicked(mouseButton: Int): Boolean {
+        return this.booleanElement.onMouseClick(mouseXRel, mouseYRel, mouseButton)
+    }
 }

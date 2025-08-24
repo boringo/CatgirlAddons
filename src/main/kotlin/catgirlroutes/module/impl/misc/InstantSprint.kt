@@ -4,7 +4,6 @@ import catgirlroutes.CatgirlRoutes.Companion.mc
 import catgirlroutes.events.impl.MotionUpdateEvent
 import catgirlroutes.module.Category
 import catgirlroutes.module.Module
-import catgirlroutes.utils.ChatUtils.modMessage
 import catgirlroutes.utils.MovementUtils.restartMovement
 import catgirlroutes.utils.MovementUtils.stopMovement
 import net.minecraftforge.client.event.RenderWorldLastEvent
@@ -13,19 +12,19 @@ import kotlin.math.cos
 import kotlin.math.sin
 
 object InstantSprint: Module(
-    name = "Instant Sprint",
-    category = Category.MISC,
+    "Instant Sprint",
+    Category.MISC,
     tag = TagType.WHIP
 ) {
-    private val forwarKeybing = (mc.gameSettings.keyBindForward)
-    var active = false
+    private val forwardKeyBind = (mc.gameSettings.keyBindForward)
+    private var active = false
 
 
     @SubscribeEvent
     fun onRender(event: RenderWorldLastEvent) {
         if(!mc.thePlayer.onGround) return
         if (!enabled) return
-        if (forwarKeybing.isPressed) {
+        if (forwardKeyBind.isPressed) {
             if (active) return
             active = true
             mc.thePlayer.setVelocity(0.0, mc.thePlayer.motionY, 0.0)

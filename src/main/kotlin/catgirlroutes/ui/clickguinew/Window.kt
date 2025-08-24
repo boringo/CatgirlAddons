@@ -4,6 +4,8 @@ import catgirlroutes.module.Category
 import catgirlroutes.module.ModuleManager
 import catgirlroutes.module.settings.SettingsCategory
 import catgirlroutes.ui.animations.impl.LinearAnimation
+import catgirlroutes.ui.clickgui.util.MouseUtils.mouseX
+import catgirlroutes.ui.clickgui.util.MouseUtils.mouseY
 import catgirlroutes.ui.clickguinew.elements.ModuleButton
 import net.minecraft.client.renderer.GlStateManager
 import org.lwjgl.input.Keyboard
@@ -36,8 +38,7 @@ class Window(
             .forEach { this.moduleButtons.add(ModuleButton(it, this)) }
     }
 
-
-    fun drawScreen(mouseX: Int, mouseY: Int, partialTicks: Float) {
+    fun draw() {
         if (!this.selected) return
         GlStateManager.pushMatrix()
         GlStateManager.translate(x, y, 0.0)
@@ -48,23 +49,23 @@ class Window(
         this.moduleButtons.filtered().reversed().forEach {
             it.x = 0.0
             it.y = drawY
-            drawY += it.drawScreen(mouseX, mouseY, partialTicks)
+            drawY += it.draw()
         }
 
         GlStateManager.popMatrix()
     }
 
-    fun mouseClicked(mouseX: Int, mouseY: Int, mouseButton: Int): Boolean {
-        if (this.isHovered(mouseX, mouseY)) {
+    fun mouseClicked(mouseButton: Int): Boolean {
+        if (this.isHovered()) {
             this.moduleButtons.filtered().forEach {
-                if (it.mouseClicked(mouseX, mouseY, mouseButton)) return true
+                if (it.mouseClicked(mouseButton)) return true
             }
         }
         return false
     }
 
-    fun mouseReleased(mouseX: Int, mouseY: Int, state: Int) {
-        if (this.selected) this.moduleButtons.filtered().forEach { it.mouseReleased(mouseX, mouseY, state) }
+    fun mouseReleased(state: Int) {
+        if (this.selected) this.moduleButtons.filtered().forEach { it.mouseReleased(state) }
     }
 
     fun keyTyped(typedChar: Char, keyCode: Int): Boolean {
@@ -80,12 +81,16 @@ class Window(
         return false
     }
 
-    fun mouseClickMove(mouseX: Int, mouseY: Int, clickedMouseButton: Int, timeSinceLastClick: Long) {
-        if (this.selected) this.moduleButtons.filtered().forEach { it.mouseClickMove(mouseX, mouseY, clickedMouseButton, timeSinceLastClick) }
+    fun mouseClickMove(clickedMouseButton: Int, timeSinceLastClick: Long) {
+        if (this.selected) this.moduleButtons.filtered().forEach { it.mouseClickMove(clickedMouseButton, timeSinceLastClick) }
     }
 
-    fun scroll(amount: Int, mouseX: Int = (this.x + 10.0).toInt(), mouseY: Int = (this.y + 10.0).toInt()): Boolean {
-        if (inModule || !isHovered(mouseX, mouseY)) return false
+    fun onGuiClosed() {
+        this.moduleButtons.filtered().forEach { it.onGuiClosed() }
+    }
+
+    fun scroll(amount: Int): Boolean {
+        if (inModule || !isHovered()) return false
         val h = moduleButtons.filtered().size * 25.0 + 5.0
         if (h < this.height) return false
         scrollTarget = (scrollTarget + amount * SCROLL_DISTANCE).coerceIn(-h + this.height, 0.0)
@@ -93,7 +98,7 @@ class Window(
         return true
     }
 
-    fun isHovered(mouseX: Int, mouseY: Int): Boolean {
+    fun isHovered(): Boolean {
         if (!this.selected) return false
         return mouseX >= this.x && mouseX <= this.x + this.width && mouseY >= this.y && mouseY <= this.y + this.height
     }

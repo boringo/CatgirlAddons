@@ -21,6 +21,4 @@ public interface IEntityPlayerSPAccessor {
     @Accessor("lastReportedPitch")
     float getLastReportedPitch();
 
-    @Accessor("positionUpdateTicks")
-    int getPositionUpdateTicks();
 }

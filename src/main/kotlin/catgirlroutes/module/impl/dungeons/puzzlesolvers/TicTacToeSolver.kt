@@ -151,9 +151,9 @@ object TicTacToeSolver {
      */
 
     fun onMotion() {
-        if (bestMove == null || blockArray.contains(BlockAura.BlockAuraAction(bestMove!!, tttReach.value)) || !tttAuto.value) return
+        if (bestMove == null || blockArray.contains(BlockAura.BlockAuraAction(bestMove!!, tttReach)) || !tttAuto) return
         if (System.currentTimeMillis() < nextClick) return
-        blockArray.add(BlockAura.BlockAuraAction(bestMove!!, tttReach.value))
+        blockArray.add(BlockAura.BlockAuraAction(bestMove!!, tttReach))
         nextClick = System.currentTimeMillis() + cooldown
     }
 

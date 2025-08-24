@@ -1,6 +1,6 @@
 package catgirlroutes.ui.clickgui.elements.menu
 
-import catgirlroutes.module.settings.impl.StringSelectorSetting
+import catgirlroutes.module.settings.impl.SelectorSetting
 import catgirlroutes.ui.clickgui.elements.Element
 import catgirlroutes.ui.clickgui.elements.ElementType
 import catgirlroutes.ui.clickgui.elements.ModuleButton
@@ -14,8 +14,8 @@ import java.util.*
  *
  * @author Aton
  */
-class ElementStringSelector(parent: ModuleButton, setting: StringSelectorSetting) :
-    Element<StringSelectorSetting>(parent, setting, ElementType.SELECTOR) {
+class ElementStringSelector(parent: ModuleButton, setting: SelectorSetting) :
+    Element<SelectorSetting>(parent, setting, ElementType.SELECTOR) {
 
     override fun renderElement(mouseX: Int, mouseY: Int, partialTicks: Float): Int {
         val displayValue = setting.selected

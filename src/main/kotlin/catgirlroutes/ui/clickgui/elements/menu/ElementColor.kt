@@ -9,7 +9,7 @@ import catgirlroutes.ui.clickgui.util.ColorUtil.hex
 import catgirlroutes.ui.clickgui.util.ColorUtil.withAlpha
 import catgirlroutes.ui.clickgui.util.FontUtil
 import catgirlroutes.utils.ChatUtils.debugMessage
-import catgirlroutes.utils.Utils.equalsOneOf
+import catgirlroutes.utils.equalsOneOf
 import catgirlroutes.utils.render.HUDRenderUtils
 import net.minecraft.client.gui.Gui
 import net.minecraft.client.gui.GuiScreen

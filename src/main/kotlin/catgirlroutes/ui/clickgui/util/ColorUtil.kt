@@ -10,26 +10,26 @@ import java.awt.Color
  */
 object ColorUtil {
     val clickGUIColor: Color
-        get() = ClickGui.color.value
+        get() = ClickGui.color
 
-    val elementColor: Int
+    val elementColor: Color
      get() = if (ClickGui.design.isSelected("New"))
-             newColor
+             Color(newColor)
          else if (ClickGui.design.isSelected("JellyLike"))
-             jellyColor
+             Color(jellyColor)
          else
-             0
+             Color.black
 
-    val bgColor: Int
+    val bgColor: Color
         get() = if (ClickGui.design.isSelected("New"))
-            newColor
+            Color(newColor)
         else if (ClickGui.design.isSelected("JellyLike"))
-            Color(255,255,255,50).rgb
+            Color(255,255,255,50)
         else
-            0
+            Color.black
 
-    val outlineColor : Int
-        get() = clickGUIColor.darker().rgb
+    val outlineColor : Color
+        get() = clickGUIColor.darker()
 
     val hoverColor: Int
         get() {
@@ -89,6 +89,12 @@ object ColorUtil {
             return String.format("%08X", rgba)
         }
 
+    val Color.toInt: Int
+        get() {
+            val rgb = (alpha shl 24) or (red shl 16) or (green shl 8) or blue
+            return rgb
+        }
+
     val Color.invert: Color
         get() {
             val alpha = (this.rgb shr 24) and 0xFF
@@ -115,6 +121,6 @@ object ColorUtil {
     const val boxHoverColor = 0x55111111
     const val sliderBackground = -0xefeff0
 
-    const val buttonColor = -0x1000000
+    val buttonColor = Color(-0x1000000)
 
 }

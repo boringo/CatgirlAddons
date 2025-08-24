@@ -3,13 +3,13 @@ package catgirlroutes.module.impl.player
 import catgirlroutes.CatgirlRoutes.Companion.mc
 import catgirlroutes.module.Category
 import catgirlroutes.module.Module
-import catgirlroutes.module.settings.impl.BooleanSetting
 import catgirlroutes.module.settings.impl.NumberSetting
+import catgirlroutes.utils.ChatUtils.debugMessage
 import catgirlroutes.utils.PlayerUtils
 import catgirlroutes.utils.PlayerUtils.posX
 import catgirlroutes.utils.PlayerUtils.posZ
-import catgirlroutes.utils.Utils.equalsOneOf
-import catgirlroutes.utils.VecUtils.multiply
+import catgirlroutes.utils.equalsOneOf
+import catgirlroutes.utils.multiply
 import net.minecraft.block.state.IBlockState
 import net.minecraft.init.Blocks
 import net.minecraft.util.BlockPos
@@ -24,24 +24,21 @@ import kotlin.math.sin
 
 // edited flopper
 object BarPhase: Module(
-    "Bar phase",
+    "Bar Phase",
     Category.PLAYER
 ) {
-    private val phaseDelay = NumberSetting("Phase delay", 0.0, 0.0, 5.0, 1.0, unit = "t")
-//    private val blockClip = BooleanSetting("Block clip in TP Maze", false) // todo
+    private val phaseDelay by NumberSetting("Phase delay", 0.0, 0.0, 5.0, 1.0, unit = "t")
+//    private val blockClip by BooleanSetting("Block clip in TP Maze", false) // todo
 
-    init {
-        addSettings(
-            phaseDelay,
-//            blockClip
-        )
+    override fun onKeyBind() { // todo https://github.com/WompWatr/CatgirlAddons/issues/8#issuecomment-2728417654
+        super.onKeyBind()
     }
 
     private var phaseTicks = 0
 
-    const val minCoord = 0.446f
-    const val maxCoord = 0.5455f
-    const val range = 0.018
+    private const val minCoord = 0.4375f
+    private const val maxCoord = 0.5625f
+    private const val range = 0.018
 
     @SubscribeEvent
     fun onTick(event: TickEvent.ClientTickEvent){
@@ -58,12 +55,12 @@ object BarPhase: Module(
             }
 
             val loc = Vec3(mc.thePlayer.posX, mc.thePlayer.posY, mc.thePlayer.posZ)
-            val offsVec = Vec3(0.0, 1.0,0.0).crossProduct(Vec3(dir.directionVec)).multiply(0.3)
+            val offsVec = Vec3(0.0, 1.0,0.0).crossProduct(Vec3(dir.directionVec)).multiply(0.3, 1.0, 0.3)
 
             val flag = flag(loc, offsVec, dir)
             val flag2 = flag(loc.addVector(0.0, 0.5, 0.0), offsVec, dir)
 
-            if ((flag || flag2) && this.phaseTicks >= this.phaseDelay.value) {
+            if ((flag || flag2) && this.phaseTicks >= this.phaseDelay) {
                 PlayerUtils.relativeClip(
                     -sin((dir.horizontalIndex * 90f) * Math.PI / 180) * 0.7,
                     if (!flag) 0.5 else 0.0,
@@ -75,7 +72,7 @@ object BarPhase: Module(
         } else this.phaseTicks = 0
     }
 
-    private fun direction(): EnumFacing?{
+    private fun direction(): EnumFacing? {
         return  when {
             inRange(posX, this.minCoord - 0.3f) -> EnumFacing.EAST
             inRange(posZ, this.minCoord - 0.3f) -> EnumFacing.SOUTH
@@ -91,6 +88,10 @@ object BarPhase: Module(
     }
 
     private fun flag(loc: Vec3, offsVec: Vec3, dir: EnumFacing): Boolean {
+        debugMessage("1 " + mc.theWorld.getBlockState(BlockPos(loc.add(offsVec)).offset(dir)).block.registryName)
+        debugMessage("2 " + mc.theWorld.getBlockState(BlockPos(loc.subtract(offsVec)).offset(dir)).block.registryName)
+        debugMessage("3 " + mc.theWorld.getBlockState(BlockPos(loc.add(offsVec)).offset(dir).up()).block.registryName)
+        debugMessage("4 " + mc.theWorld.getBlockState(BlockPos(loc.subtract(offsVec)).offset(dir).up()).block.registryName)
         return mc.theWorld.getBlockState(BlockPos(loc.add(offsVec)).offset(dir)).isGoog
                 && mc.theWorld.getBlockState(BlockPos(loc.subtract(offsVec)).offset(dir)).isGoog
                 && mc.theWorld.getBlockState(BlockPos(loc.add(offsVec)).offset(dir).up()).isGoog

@@ -1,6 +1,6 @@
 package catgirlroutes.utils.dungeon.tiles
 
-import catgirlroutes.utils.Utils
+import catgirlroutes.utils.Vec2
 import com.google.gson.JsonDeserializationContext
 import com.google.gson.JsonDeserializer
 import com.google.gson.JsonElement
@@ -17,7 +17,7 @@ data class Room(
 )
 
 data class RoomComponent(val x: Int, val z: Int, val core: Int = 0) {
-    val vec2 = Utils.Vec2(x, z)
+    val vec2 = Vec2(x, z)
     val vec3 = Vec3(x.toDouble(), 70.0, z.toDouble())
 }
 

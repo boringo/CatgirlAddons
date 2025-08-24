@@ -7,5 +7,5 @@ package catgirlroutes.module.settings
  * It only works for objects inheriting from [HudElement][floppaclient.ui.hud.HudElement] declared within your module.
  */
 @Retention(AnnotationRetention.RUNTIME)
-@Target(AnnotationTarget.CLASS)
+@Target(AnnotationTarget.CLASS, AnnotationTarget.FUNCTION)
 annotation class RegisterHudElement()

@@ -1,24 +1,22 @@
 package catgirlroutes.utils
 
 import catgirlroutes.CatgirlRoutes.Companion.mc
-import catgirlroutes.utils.VecUtils.get
-import catgirlroutes.utils.VecUtils.getLook
-import catgirlroutes.utils.VecUtils.getPositionEyes
-import catgirlroutes.utils.VecUtils.multiply
-import catgirlroutes.utils.VecUtils.renderVec
-import catgirlroutes.utils.VecUtils.toBlockPos
+import catgirlroutes.utils.render.WorldRenderUtils.renderVec
+import net.minecraft.block.Block
+import net.minecraft.block.state.BlockState
 import net.minecraft.util.BlockPos
 import net.minecraft.util.Vec3
+import java.util.*
 import kotlin.math.abs
-import kotlin.math.floor
 import kotlin.math.max
 import kotlin.math.sign
 
+// odon clin https://github.com/odtheking/Odin/blob/main/src/main/kotlin/me/odinmain/utils/skyblock/EtherWarpHelper.kt
 object EtherWarpHelper {
-    data class EtherPos(val succeeded: Boolean, val pos: BlockPos?) {
-        val vec: Vec3? get() = pos?.let { Vec3(it) }
+    data class EtherPos(val succeeded: Boolean, val pos: BlockPos?, val state: BlockState?) {
+        inline val vec: Vec3? get() = pos?.let { Vec3(it) }
         companion object {
-            val NONE = EtherPos(false, null)
+            val NONE = EtherPos(false, null, null)
         }
     }
     var etherPos: EtherPos = EtherPos.NONE
@@ -37,10 +35,10 @@ object EtherWarpHelper {
         val startPos: Vec3 = getPositionEyes(pos)
         val endPos = getLook(yaw = yaw, pitch = pitch).normalize().multiply(factor = distance).add(startPos)
 
-        return traverseVoxels(startPos, endPos).takeUnless { it == EtherPos.NONE && returnEnd } ?: EtherPos(true, endPos.toBlockPos())
+        return traverseVoxels(startPos, endPos).takeUnless { it == EtherPos.NONE && returnEnd } ?: EtherPos(true, endPos.toBlockPos(), null)
     }
 
-    fun getEtherPos(positionLook: PositionLook = PositionLook(mc.thePlayer.renderVec, mc.thePlayer.rotationYaw, mc.thePlayer.rotationPitch), distance: Double = 60.0): EtherPos {
+    fun getEtherPos(positionLook: PositionLook = PositionLook(mc.thePlayer.renderVec, mc.thePlayer.rotationYaw, mc.thePlayer.rotationPitch), distance: Double =  56.0 + mc.thePlayer.heldItem.getTunerBonus): EtherPos {
         return getEtherPos(positionLook.pos, positionLook.yaw, positionLook.pitch, distance)
     }
 
@@ -49,85 +47,74 @@ object EtherWarpHelper {
      * @author Bloom
      */
     private fun traverseVoxels(start: Vec3, end: Vec3): EtherPos {
-        val direction = end.subtract(start)
-        val step = DoubleArray(3) { sign(direction.get(it)) }
-        val invDirection = DoubleArray(3) { 1.0 / direction.get(it) }
-        val tDelta = DoubleArray(3) { invDirection[it] * step[it] }
-        val tMax = DoubleArray(3) {
-            val startCoord = start.get(it)
-            abs((floor(startCoord) + max(step[it], 0.0) - startCoord) * invDirection[it])
-        }
+        val (x0, y0, z0) = start
+        val (x1, y1, z1) = end
 
-        val currentPos = DoubleArray(3) { floor(start.get(it)) }
-        val endPos = DoubleArray(3) { floor(end.get(it)) }
-        var iterations = 0
+        var (x, y, z) = start.floorVec()
+        val (endX, endY, endZ) = end.floorVec()
 
-        while (iterations++ < 1000) {
-            val pos = BlockPos(currentPos[0].toInt(), currentPos[1].toInt(), currentPos[2].toInt())
-            if (getBlockIdAt(pos) != 0) return EtherPos(isValidEtherWarpBlock(pos), pos)
+        val dirX = x1 - x0
+        val dirY = y1 - y0
+        val dirZ = z1 - z0
 
-            if (currentPos.contentEquals(endPos)) break // reached end
+        val stepX = sign(dirX).toInt()
+        val stepY = sign(dirY).toInt()
+        val stepZ = sign(dirZ).toInt()
 
-            val minIndex = tMax.indices.minByOrNull { tMax[it] } ?: 0
-            tMax[minIndex] += tDelta[minIndex]
-            currentPos[minIndex] += step[minIndex]
+        val invDirX = if (dirX != 0.0) 1.0 / dirX else Double.MAX_VALUE
+        val invDirY = if (dirY != 0.0) 1.0 / dirY else Double.MAX_VALUE
+        val invDirZ = if (dirZ != 0.0) 1.0 / dirZ else Double.MAX_VALUE
+
+        val tDeltaX = abs(invDirX * stepX)
+        val tDeltaY = abs(invDirY * stepY)
+        val tDeltaZ = abs(invDirZ * stepZ)
+
+        var tMaxX = abs((x + max(stepX, 0) - x0) * invDirX)
+        var tMaxY = abs((y + max(stepY, 0) - y0) * invDirY)
+        var tMaxZ = abs((z + max(stepZ, 0) - z0) * invDirZ)
+
+        repeat(1000) {
+            val chunk = mc.theWorld?.chunkProvider?.provideChunk(x.toInt() shr 4, z.toInt() shr 4) ?: return EtherPos.NONE
+            val currentBlock = chunk.getBlock(BlockPos(x, y, z))
+            val currentBlockId = Block.getIdFromBlock(currentBlock)
+
+            if (currentBlockId != 0) {
+                if (validEtherwarpFeetIds.get(currentBlockId)) return EtherPos(false, BlockPos(x, y, z), currentBlock.blockState)
+
+                val footBlockId = Block.getIdFromBlock(chunk.getBlock(BlockPos(x, y + 1, z)))
+                if (!validEtherwarpFeetIds.get(footBlockId)) return EtherPos(false, BlockPos(x, y, z), currentBlock.blockState)
+
+                val headBlockId = Block.getIdFromBlock(chunk.getBlock(BlockPos(x, y + 2, z)))
+                if (!validEtherwarpFeetIds.get(headBlockId)) return EtherPos(false, BlockPos(x, y, z), currentBlock.blockState)
+
+                return EtherPos(true, BlockPos(x, y, z), currentBlock.blockState)
+            }
+
+            if (x == endX && y == endY && z == endZ) return EtherPos.NONE
+
+            when {
+                tMaxX <= tMaxY && tMaxX <= tMaxZ -> {
+                    tMaxX += tDeltaX
+                    x += stepX
+                }
+                tMaxY <= tMaxZ -> {
+                    tMaxY += tDeltaY
+                    y += stepY
+                }
+                else -> {
+                    tMaxZ += tDeltaZ
+                    z += stepZ
+                }
+            }
         }
 
         return EtherPos.NONE
     }
 
-    /**
-     * Checks if the block at the given position is a valid block to etherwarp onto.
-     * @author Bloom
-     */
-    private fun isValidEtherWarpBlock(pos: BlockPos): Boolean {
-        // Checking the actual block to etherwarp ontop of
-        // Can be at foot level, but not etherwarped onto directly.
-        if (getBlockAt(pos).registryName in validEtherwarpFeetBlocks || getBlockAt(pos.up(1)).registryName !in validEtherwarpFeetBlocks) return false
-
-        return getBlockAt(pos.up(2)).registryName in validEtherwarpFeetBlocks
+    private val validEtherwarpFeetIds = BitSet(176).apply {
+        arrayOf(
+            0, 6, 9, 11, 30, 31, 32, 36, 37, 38, 39, 40, 50, 51, 55, 59, 65, 66, 69, 76, 77, 78,
+            93, 94, 104, 105, 106, 111, 115, 131, 132, 140, 141, 142, 143, 144, 149, 150, 157, 171, 175
+        ).forEach { set(it) }
     }
-
-    private val validEtherwarpFeetBlocks = setOf(
-        "minecraft:air",
-        "minecraft:fire",
-        "minecraft:carpet",
-        "minecraft:skull",
-        "minecraft:lever",
-        "minecraft:stone_button",
-        "minecraft:wooden_button",
-        "minecraft:torch",
-        "minecraft:string",
-        "minecraft:tripwire_hook",
-        "minecraft:tripwire",
-        "minecraft:rail",
-        "minecraft:activator_rail",
-        "minecraft:snow_layer",
-        "minecraft:carrots",
-        "minecraft:wheat",
-        "minecraft:potatoes",
-        "minecraft:nether_wart",
-        "minecraft:pumpkin_stem",
-        "minecraft:melon_stem",
-        "minecraft:redstone_torch",
-        "minecraft:redstone_wire",
-        "minecraft:red_flower",
-        "minecraft:yellow_flower",
-        "minecraft:sapling",
-        "minecraft:flower_pot",
-        "minecraft:deadbush",
-        "minecraft:tallgrass",
-        "minecraft:ladder",
-        "minecraft:double_plant",
-        "minecraft:unpowered_repeater",
-        "minecraft:powered_repeater",
-        "minecraft:unpowered_comparator",
-        "minecraft:powered_comparator",
-        "minecraft:web",
-        "minecraft:waterlily",
-        "minecraft:water",
-        "minecraft:lava",
-        "minecraft:torch",
-        "minecraft:vine",
-    )
 }

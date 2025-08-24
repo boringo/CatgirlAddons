@@ -3,8 +3,8 @@ package catgirlroutes.ui.clickgui.elements
 import catgirlroutes.module.impl.render.ClickGui
 import catgirlroutes.module.settings.Setting
 import catgirlroutes.module.settings.impl.ColorSetting
+import catgirlroutes.module.settings.impl.tSelectorSetting
 import catgirlroutes.module.settings.impl.SelectorSetting
-import catgirlroutes.module.settings.impl.StringSelectorSetting
 import catgirlroutes.ui.clickgui.ClickGUI
 import catgirlroutes.ui.clickgui.util.ColorUtil
 import catgirlroutes.ui.clickgui.util.FontUtil
@@ -46,6 +46,7 @@ abstract class Element<S: Setting<*>>(
             ElementType.TEXT_FIELD -> 12
             ElementType.KEY_BIND -> 11
             ElementType.ACTION -> 11
+            ElementType.HUD -> if (setting.name.isEmpty()) 0 else DEFAULT_HEIGHT
             else -> DEFAULT_HEIGHT
         }
     }
@@ -58,7 +59,7 @@ abstract class Element<S: Setting<*>>(
         when (type) {
             ElementType.SELECTOR -> {
                 height = if (extended)
-                    (((setting as? StringSelectorSetting)?.options?.size ?: (setting as SelectorSetting<*>).options.size) * (FontUtil.fontHeight + 2) + DEFAULT_HEIGHT)
+                    (((setting as? SelectorSetting)?.options?.size ?: (setting as tSelectorSetting<*>).options.size) * (FontUtil.fontHeight + 2) + DEFAULT_HEIGHT)
                 else
                     DEFAULT_HEIGHT
             }
@@ -96,14 +97,14 @@ abstract class Element<S: Setting<*>>(
         val color = if (listening) {
             ColorUtil.clickGUIColor.rgb
         }else {
-            ColorUtil.elementColor
+            ColorUtil.elementColor.rgb
         }
 
         /** Rendering the box */
         Gui.drawRect(0, 0, width, height, color)
         /** The decor */
         if (ClickGui.design.isSelected("New")) {
-            Gui.drawRect(width, 0, width + 2, height, ColorUtil.outlineColor)
+            Gui.drawRect(width, 0, width + 2, height, ColorUtil.outlineColor.rgb)
         }
 
         // Render the element.

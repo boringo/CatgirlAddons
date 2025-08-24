@@ -7,46 +7,51 @@ import catgirlroutes.ui.clickgui.util.FontUtil.fontHeight
 import catgirlroutes.ui.clickguinew.elements.Element
 import catgirlroutes.ui.clickguinew.elements.ElementType
 import catgirlroutes.ui.clickguinew.elements.ModuleButton
-import catgirlroutes.ui.misc.elements.impl.MiscElementText
-import java.awt.Color
+import catgirlroutes.ui.misc.elements.impl.textField
+import catgirlroutes.ui.misc.elements.util.update
 
 class ElementTextField(parent: ModuleButton, setting: StringSetting) :
     Element<StringSetting>(parent, setting, ElementType.TEXT_FIELD) {
 
-    private val textField = MiscElementText(
-        0.0,
-        fontHeight + 3.0,
-        width,
-        13.0,
-        this.setting.text,
-        this.setting.length,
-        this.setting.placeholder,
-        thickness = 1.0,
-        radius = 3.0
-    )
+    private val textField = textField {
+        at(0.0, fontHeight + 3.0)
+        size(this@ElementTextField.width, 13.0)
+        text = setting.text
+        maxLength = setting.length
+        placeholder = setting.placeholder
+    }
 
-    override fun renderElement(mouseX: Int, mouseY: Int, partialTicks: Float): Double {
-        FontUtil.drawString(displayName, 0.0, 0.0)
-        this.setting.text = this.textField.text
-        this.textField.apply {
-            text = setting.text
-            outlineColour = Color(ColorUtil.outlineColor) // todo do something about this cuz it doesn't seem like meta
-            outlineFocusColour = ColorUtil.clickGUIColor
-            render(mouseX - xAbsolute.toInt(), mouseY - yAbsolute.toInt())
+    private var lastKnownText = setting.text
+
+    override fun renderElement(): Double {
+        if (setting.text != this.lastKnownText) {
+            this.textField.text = setting.text
+            this.lastKnownText = setting.text
         }
-        return super.renderElement(mouseX, mouseY, partialTicks)
+
+        FontUtil.drawString(displayName, 0.0, 0.0)
+
+        if (this.textField.text != setting.text) {
+            setting.text = this.textField.text
+            this.lastKnownText = this.textField.text
+        }
+        this.textField.update { // FIXME
+            outlineColour = ColorUtil.outlineColor
+            outlineHoverColour = ColorUtil.clickGUIColor
+        }.draw(mouseXRel, mouseYRel)
+        return super.renderElement()
     }
 
-    override fun mouseClicked(mouseX: Int, mouseY: Int, mouseButton: Int): Boolean {
-        return this.textField.mouseClicked(mouseX - xAbsolute.toInt(), mouseY - yAbsolute.toInt(), mouseButton)
+    override fun mouseClicked(mouseButton: Int): Boolean {
+        return this.textField.onMouseClick(mouseXRel, mouseYRel, mouseButton)
     }
 
-    override fun mouseClickMove(mouseX: Int, mouseY: Int, clickedMouseButton: Int, timeSinceLastClick: Long) {
-        this.textField.mouseClickMove(mouseX - xAbsolute.toInt(), mouseY - yAbsolute.toInt(), clickedMouseButton, timeSinceLastClick)
+    override fun mouseClickMove(mouseButton: Int, timeSinceLastClick: Long) {
+        this.textField.mouseClickMove(mouseXRel, mouseYRel, mouseButton, timeSinceLastClick)
     }
 
     override fun keyTyped(typedChar: Char, keyCode: Int): Boolean {
-        return this.textField.keyTyped(typedChar, keyCode)
+        return this.textField.onKey(typedChar, keyCode)
     }
 
 }

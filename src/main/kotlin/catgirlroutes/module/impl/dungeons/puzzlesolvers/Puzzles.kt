@@ -1,5 +1,6 @@
 package catgirlroutes.module.impl.dungeons.puzzlesolvers
 
+import catgirlroutes.events.impl.ChatPacket
 import catgirlroutes.events.impl.MotionUpdateEvent
 import catgirlroutes.events.impl.PacketSentEvent
 import catgirlroutes.events.impl.RoomEnterEvent
@@ -15,7 +16,6 @@ import catgirlroutes.utils.clock.Executor.Companion.register
 import catgirlroutes.utils.dungeon.DungeonUtils.inBoss
 import catgirlroutes.utils.dungeon.DungeonUtils.inDungeons
 import net.minecraft.network.play.client.C08PacketPlayerBlockPlacement
-import net.minecraftforge.client.event.ClientChatReceivedEvent
 import net.minecraftforge.client.event.RenderWorldLastEvent
 import net.minecraftforge.event.world.WorldEvent
 import net.minecraftforge.fml.common.eventhandler.EventPriority
@@ -28,50 +28,29 @@ object Puzzles : Module (
     Category.DUNGEON,
     "Puzzle solvers"
 ) {
-    private val fillDropdown: DropdownSetting = DropdownSetting("Ice fill", false)
-    var fillSolver: BooleanSetting = BooleanSetting("Ice fill solver", false).withDependency(fillDropdown)
-    var fillAuto: BooleanSetting = BooleanSetting("Auto ice fill", false).withDependency(fillDropdown) { fillSolver.enabled }
-    var fillDelay: NumberSetting = NumberSetting("Auto ice fill delay", 2.0, 1.0, 10.0, 1.0).withDependency(fillDropdown) { fillSolver.enabled && fillAuto.enabled }
+    private val fillDropdown by DropdownSetting("Ice fill")
+    var fillSolver by BooleanSetting("Ice fill solver", "Shows you the solution to the ice fill puzzle.").withDependency(fillDropdown)
+    var fillAuto by BooleanSetting("Auto ice fill", "Automatically completes the ice fill puzzle").withDependency(fillDropdown) { fillSolver }
+    var fillDelay by NumberSetting("Auto ice fill delay", 2.0, 1.0, 10.0, 1.0, unit = "t").withDependency(fillDropdown) { fillSolver && fillAuto }
 
-    private val tttDropdown: DropdownSetting = DropdownSetting("Tic tac toe", false)
-    private var tttSolver: BooleanSetting = BooleanSetting("Tic tac toe solver", false).withDependency(tttDropdown)
-    private val renderNext = BooleanSetting("Show Next Move", true, description = "Shows which move is next.").withDependency(tttDropdown) { tttSolver.enabled }
-    var tttAuto: BooleanSetting = BooleanSetting("Auto TTT", false).withDependency(tttDropdown) { tttSolver.enabled }
-    var tttReach: NumberSetting = NumberSetting("Auto TTT reach", 4.5, 1.0, 6.0, 0.1).withDependency(tttDropdown) { tttSolver.enabled && tttAuto.enabled }
+    private val tttDropdown by DropdownSetting("Tic tac toe")
+    private var tttSolver by BooleanSetting("Tic tac toe solver", "Shows you the solution to the tic tac toe puzzle.").withDependency(tttDropdown)
+    private val renderNext by BooleanSetting("Show next move", true, "Shows which move is next.").withDependency(tttDropdown) { tttSolver }
+    var tttAuto by BooleanSetting("Auto TTT", "Automatically completes the tic tac toe puzzle").withDependency(tttDropdown) { tttSolver }
+    var tttReach by NumberSetting("Auto TTT reach", 4.5, 1.0, 6.0, 0.1).withDependency(tttDropdown) { tttSolver && tttAuto }
 
-    private val wbDropdown: DropdownSetting = DropdownSetting("Water board", false)
-    private val wbSolver: BooleanSetting = BooleanSetting("Water Board Solver", false, description = "Shows you the solution to the water puzzle.").withDependency(wbDropdown)
-    private val wbTracer: BooleanSetting = BooleanSetting("Show Tracer", true, description = "Shows a tracer to the next lever.").withDependency(wbDropdown) { wbSolver.enabled }
+    private val wbDropdown by DropdownSetting("Water board")
+    private val wbSolver by BooleanSetting("Water board solver", "Shows you the solution to the water puzzle.").withDependency(wbDropdown)
+    private val wbTracer by BooleanSetting("Show Tracer", true, "Shows a tracer to the next lever.").withDependency(wbDropdown) { wbSolver }
 
-    private val weirdosDropdown: DropdownSetting = DropdownSetting("Three weirdos", false)
-    val weirdosSolver: BooleanSetting = BooleanSetting("Weirdo solver", false).withDependency(weirdosDropdown)
-    val weirdosAuto = BooleanSetting("Auto weirdos", false).withDependency(weirdosDropdown) { weirdosSolver.enabled }
+    private val weirdosDropdown by DropdownSetting("Three weirdos")
+    val weirdosSolver by BooleanSetting("Weirdo solver", "Shows you the solution to the three weirdos puzzle.").withDependency(weirdosDropdown)
+    val weirdosAuto by BooleanSetting("Auto weirdos", "Automatically completes the three weirdos puzzle").withDependency(weirdosDropdown) { weirdosSolver }
 
     init {
-        addSettings(
-            fillDropdown,
-            fillSolver,
-            fillAuto,
-            fillDelay,
-
-            tttDropdown,
-            tttSolver,
-            renderNext,
-            tttAuto,
-            tttReach,
-
-            wbDropdown,
-            wbSolver,
-            wbTracer,
-
-            weirdosDropdown,
-            weirdosSolver,
-            weirdosAuto
-        )
-
         Executor(500) {
             if (!inDungeons || inBoss) return@Executor
-            if (wbSolver.value) WaterSolver.scan()
+            if (wbSolver) WaterSolver.scan()
         }.register()
     }
 
@@ -91,20 +70,20 @@ object Puzzles : Module (
     @SubscribeEvent
     fun onPacket(event: PacketSentEvent) {
         if (event.packet is C08PacketPlayerBlockPlacement) {
-            if (wbSolver.value) waterInteract(event.packet)
+            if (wbSolver) waterInteract(event.packet)
         }
     }
 
     @SubscribeEvent(priority = EventPriority.HIGHEST)
-    fun onChat(event: ClientChatReceivedEvent) {
-        AutoWeirdos.onChat(event)
+    fun onChat(event: ChatPacket) {
+        AutoWeirdos.onChat(event.message)
     }
 
     @SubscribeEvent
     fun onWorldLast(event: RenderWorldLastEvent) {
-        if (fillSolver.enabled) IceFillSolver.onRenderWorld(Color.GREEN)
-        if (tttSolver.enabled) TicTacToeSolver.onRenderWorld()
-        if (wbSolver.enabled)   WaterSolver.onRenderWorld(wbTracer.value)
+        if (fillSolver) IceFillSolver.onRenderWorld(Color.GREEN)
+        if (tttSolver) TicTacToeSolver.onRenderWorld()
+        if (wbSolver)   WaterSolver.onRenderWorld(wbTracer)
     }
 
     @SubscribeEvent

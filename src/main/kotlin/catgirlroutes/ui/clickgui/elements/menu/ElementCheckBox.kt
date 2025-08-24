@@ -19,7 +19,7 @@ class ElementCheckBox(parent: ModuleButton, setting: BooleanSetting) :
     override fun renderElement(mouseX: Int, mouseY: Int, partialTicks: Float): Int {
         val buttonColor = if (setting.enabled)
             ColorUtil.clickGUIColor.rgb
-        else ColorUtil.buttonColor
+        else ColorUtil.buttonColor.rgb
 
         /** Rendering the name and the checkbox */
         FontUtil.drawString(displayName, 1, 3)

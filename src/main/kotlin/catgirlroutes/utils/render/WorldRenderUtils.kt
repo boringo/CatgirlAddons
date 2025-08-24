@@ -1,28 +1,43 @@
 package catgirlroutes.utils.render
 
 import catgirlroutes.CatgirlRoutes.Companion.mc
-import catgirlroutes.utils.Utils.addVec
-import catgirlroutes.utils.VecUtils.fastEyeHeight
-import catgirlroutes.utils.VecUtils.renderVec
+
+import catgirlroutes.ui.clickgui.util.ColorUtil.toInt
+import catgirlroutes.ui.clickgui.util.FontUtil.fontHeight
+import catgirlroutes.ui.clickgui.util.FontUtil.getWidth
+import catgirlroutes.utils.renderText
+import catgirlroutes.utils.PlayerUtils.posX
+import catgirlroutes.utils.PlayerUtils.posY
+import catgirlroutes.utils.PlayerUtils.posZ
+import catgirlroutes.utils.addVec
+import catgirlroutes.utils.fastEyeHeight
 import catgirlroutes.utils.WorldToScreen
+import catgirlroutes.utils.render.HUDRenderUtils.sr
 import net.minecraft.client.gui.Gui
 import net.minecraft.client.renderer.GlStateManager
-import net.minecraft.client.renderer.GlStateManager.translate
 import net.minecraft.client.renderer.Tessellator
 import net.minecraft.client.renderer.WorldRenderer
+import net.minecraft.client.renderer.entity.RenderPlayer
 import net.minecraft.client.renderer.vertex.DefaultVertexFormats
 import net.minecraft.entity.Entity
 import net.minecraft.util.AxisAlignedBB
 import net.minecraft.util.BlockPos
 import net.minecraft.util.Vec3
+import net.minecraftforge.client.event.RenderWorldLastEvent
+import net.minecraftforge.fml.common.eventhandler.EventPriority
+import net.minecraftforge.fml.common.eventhandler.SubscribeEvent
+import net.minecraftforge.client.event.RenderGameOverlayEvent
+import net.minecraftforge.fml.common.gameevent.TickEvent
 import org.lwjgl.opengl.GL11
 import org.lwjgl.opengl.GL11.*
 import org.lwjgl.util.glu.Cylinder
 import org.lwjgl.util.vector.Vector3f
 import java.awt.Color
 import java.awt.Color.*
+import kotlin.math.cos
+import kotlin.math.sin
 
-
+// TODO CLEAN UP
 /**
  * ## A Collection of Methods for Rendering within the 3D World.
  *
@@ -64,6 +79,49 @@ object WorldRenderUtils {
     }
 
     /**
+     * Gets the rendered x-coordinate of an entity based on its last tick and current tick positions.
+     *
+     * @receiver The entity for which to retrieve the rendered x-coordinate.
+     * @return The rendered x-coordinate.
+     */
+    inline val Entity.renderX: Double
+        get() = prevPosX + (posX - prevPosX ) * partialTicks
+
+    /**
+     * Gets the rendered y-coordinate of an entity based on its last tick and current tick positions.
+     *
+     * @receiver The entity for which to retrieve the rendered y-coordinate.
+     * @return The rendered y-coordinate.
+     */
+    inline val Entity.renderY: Double
+        get() = prevPosY + (posY - prevPosY) * partialTicks
+
+    /**
+     * Gets the rendered z-coordinate of an entity based on its last tick and current tick positions.
+     *
+     * @receiver The entity for which to retrieve the rendered z-coordinate.
+     * @return The rendered z-coordinate.
+     */
+    inline val Entity.renderZ: Double
+        get() = prevPosZ + (posZ - prevPosZ) * partialTicks
+
+    /**
+     * Gets the rendered position of an entity as a `Vec3`.
+     *
+     * @receiver The entity for which to retrieve the rendered position.
+     * @return The rendered position as a `Vec3`.
+     */
+    inline val Entity.renderVec: Vec3
+        get() = Vec3(renderX, renderY, renderZ)
+
+    var partialTicks = 0f
+
+    @SubscribeEvent(priority = EventPriority.HIGHEST)
+    fun onRenderWorld(event: RenderWorldLastEvent) {
+        this.partialTicks = event.partialTicks
+    }
+
+    /**
      * Draws a line connecting the points ([x], [y], [z]) and ([x2], [y2], [z2]).
      *
      * @param phase Determines whether the box should be visible through walls (disables the depth test).
@@ -79,8 +137,8 @@ object WorldRenderUtils {
 
         GlStateManager.translate(-renderManager.viewerPosX, -renderManager.viewerPosY, -renderManager.viewerPosZ)
         worldRenderer.begin(GL11.GL_LINE_STRIP, DefaultVertexFormats.POSITION)
-        GlStateManager.color(color.red.toFloat() / 255f, color.green.toFloat() / 255f,
-            color.blue.toFloat() / 255f, 1f)
+        GlStateManager.color(color.red / 255f, color.green / 255f,
+            color.blue / 255f, color.alpha / 255f)
 
         worldRenderer.pos(x, y, z).endVertex()
         worldRenderer.pos(x2, y2, z2).endVertex()
@@ -103,6 +161,43 @@ object WorldRenderUtils {
     fun drawBoxAtBlock (blockPos: BlockPos, color: Color, thickness: Float = 3f, relocate: Boolean = true, filled: Boolean = false) {
         drawBoxAtBlock(blockPos.x.toDouble(), blockPos.y.toDouble(), blockPos.z.toDouble(), color, thickness, relocate, filled)
     }
+
+    /**
+     * Converts a BlockPos to an AxisAlignedBB with specified dimensions
+     *
+     * @param pos The starting BlockPos
+     * @param width The width of the box (in blocks)
+     * @param height The height of the box (in blocks)
+     * @param depth The depth of the box (in blocks)
+     * @return An AxisAlignedBB representing the specified dimensions
+     */
+    fun blockPosToAABB(pos: BlockPos, width: Int, height: Int, depth: Int): AxisAlignedBB {
+        // Create the box starting at the BlockPos coordinates
+        return AxisAlignedBB(
+            pos.x.toDouble(),                 // minX
+            pos.y.toDouble(),                 // minY
+            pos.z.toDouble(),                 // minZ
+            pos.x.toDouble() + width,         // maxX
+            pos.y.toDouble() + height,        // maxY
+            pos.z.toDouble() + depth          // maxZ
+        )
+    }
+
+    fun vec3ToAABB(pos: Vec3, width: Int, height: Int, depth: Int): AxisAlignedBB {
+        val halfWidth = width / 2.0
+        val halfHeight = height / 2.0
+        val halfDepth = depth / 2.0
+
+        return AxisAlignedBB(
+            pos.xCoord - halfWidth,   // minX
+            pos.yCoord - halfHeight,  // minY
+            pos.zCoord - halfDepth,   // minZ
+            pos.xCoord + halfWidth,   // maxX
+            pos.yCoord + halfHeight,  // maxY
+            pos.zCoord + halfDepth    // maxZ
+        )
+    }
+
 
     /**
      * Draws a cube outline of size 1 starting at [x], [y], [z] which extends by 1 along the axes in positive direction.
@@ -173,6 +268,22 @@ object WorldRenderUtils {
         glPopMatrix()
     }
 
+    fun drawOutlinedAABB(aabb: AxisAlignedBB, colour: Color, thickness: Float = 3.0f, phase: Boolean = false) {
+        GlStateManager.pushMatrix()
+        GlStateManager.disableBlend()
+        GlStateManager.disableTexture2D()
+        GlStateManager.blendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA)
+
+        if (phase) GlStateManager.disableDepth()
+        glLineWidth(thickness)
+        drawOutlinedAABB(aabb, colour)
+
+        GlStateManager.enableDepth()
+        GlStateManager.enableBlend()
+        GlStateManager.enableTexture2D()
+        GlStateManager.popMatrix()
+    }
+
     private fun drawOutlinedAABB(aabb: AxisAlignedBB, color: Color) {
         glColor4f(color.red / 255f, color.green / 255f, color.blue / 255f, color.alpha / 255f)
 
@@ -200,7 +311,7 @@ object WorldRenderUtils {
         tessellator.draw()
     }
 
-    private fun drawFilledAABB(aabb: AxisAlignedBB, color: Color) {
+    fun drawFilledAABB(aabb: AxisAlignedBB, color: Color) {
         glColor4f(color.red / 255f, color.green / 255f, color.blue / 255f, color.alpha / 255f)
 
         worldRenderer.begin(GL_QUADS, DefaultVertexFormats.POSITION)
@@ -567,6 +678,52 @@ object WorldRenderUtils {
 
      */
 
+    /**
+     * Modified https://github.com/q12323/Meow-Client/blob/main/utils/RenderUtils.js#L46
+     */
+    fun drawEllipse(
+        x: Double,
+        y: Double,
+        z: Double,
+        radiusX: Float,  // width
+        radiusZ: Float,  // length
+        color: Color,
+        slices: Int = 30,
+        lineWidth: Float = 2f,
+        phase: Boolean = false
+    ) {
+        GlStateManager.disableLighting()
+        GlStateManager.enableBlend()
+        GlStateManager.blendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA)
+        GL11.glLineWidth(lineWidth)
+
+        if (phase) GlStateManager.disableDepth()
+        GlStateManager.disableTexture2D()
+
+        GlStateManager.pushMatrix()
+        GlStateManager.translate(x - renderManager.viewerPosX, y - renderManager.viewerPosY + 0.1, z - renderManager.viewerPosZ)
+
+        val deltaTheta = (Math.PI * 2) / slices
+        worldRenderer.begin(GL_LINE_LOOP, DefaultVertexFormats.POSITION)
+        GlStateManager.color(color.red / 255f, color.green / 255f, color.blue / 255f, color.alpha / 255f)
+
+        for (i in 0..slices) {
+            val theta = deltaTheta * i
+            worldRenderer.pos(
+                radiusX * cos(theta),
+                0.0,
+                radiusZ * sin(theta)
+            ).endVertex()
+        }
+
+        tessellator.draw()
+        GlStateManager.popMatrix()
+
+        GlStateManager.enableTexture2D()
+        GlStateManager.enableDepth()
+        GlStateManager.disableBlend()
+    }
+
     fun drawSquare(
         x: Double,
         y: Double,
@@ -617,6 +774,7 @@ object WorldRenderUtils {
         x: Double,
         y: Double,
         z: Double,
+        length: Float,
         width: Float,
         height: Float,
         colour: Color,
@@ -625,12 +783,12 @@ object WorldRenderUtils {
 
         val gap = height / (layers - 1)
         for (i in 1 until layers - 1) {
-            drawSquareTwo(x, y + (gap * i), z, width, width, colour, 4f, false)
+            drawSquareTwo(x, y + (gap * i), z, length, width, colour, 4f, false)
         }
 
-        drawSquareTwo(x, y + 0.01, z, width, width, colour, 4f, false)
+        drawSquareTwo(x, y + 0.01, z, length, width, colour, 4f, false)
         if (layers == 1) return
-        drawSquareTwo(x, y + height, z, width, width, colour, 4f, false)
+        drawSquareTwo(x, y + height, z, length, width, colour, 4f, false)
     }
 
 
@@ -638,45 +796,48 @@ object WorldRenderUtils {
         x: Double,
         y: Double,
         z: Double,
+        length: Float,
         width: Float,
         height: Float,
     ){
-        drawSquareTwo(x, y + 0.01, z, width, width, cyan, 4f, false)
-        drawSquareTwo(x, y + height * 0.25, z, width, width, pink, 4f, false)
-        drawSquareTwo(x, y + height * 0.5, z, width, width, white, 4f, false)
-        drawSquareTwo(x, y + height * 0.75, z, width, width, pink, 4f, false)
-        drawSquareTwo(x, y + height, z, width, width, cyan, 4f, false)
+        drawSquareTwo(x, y + 0.01, z, length, width, cyan, 4f, false)
+        drawSquareTwo(x, y + height * 0.25, z, length, width, pink, 4f, false)
+        drawSquareTwo(x, y + height * 0.5, z, length, width, white, 4f, false)
+        drawSquareTwo(x, y + height * 0.75, z, length, width, pink, 4f, false)
+        drawSquareTwo(x, y + height, z, length, width, cyan, 4f, false)
     }
 
     fun renderGayFlag(
         x: Double,
         y: Double,
         z: Double,
+        length: Float,
         width: Float,
         height: Float,
     ){
-        drawSquareTwo(x, y + 0.01, z, width, width, red, 4f, false)
-        drawSquareTwo(x, y + height * 0.2, z, width, width, orange, 4f, false)
-        drawSquareTwo(x, y + height * 0.4, z, width, width, yellow, 4f, false)
-        drawSquareTwo(x, y + height * 0.6, z, width, width, green, 4f, false)
-        drawSquareTwo(x, y + height * 0.8, z, width, width, blue, 4f, false)
-        drawSquareTwo(x, y + height, z, width, width, pink, 4f, false)
+        drawSquareTwo(x, y + 0.01, z, length, width, red, 4f, false)
+        drawSquareTwo(x, y + height * 0.2, z, length, width, orange, 4f, false)
+        drawSquareTwo(x, y + height * 0.4, z, length, width, yellow, 4f, false)
+        drawSquareTwo(x, y + height * 0.6, z, length, width, green, 4f, false)
+        drawSquareTwo(x, y + height * 0.8, z, length, width, blue, 4f, false)
+        drawSquareTwo(x, y + height, z, length, width, pink, 4f, false)
     }
 
     fun renderLesbianFlag(
         x: Double,
         y: Double,
         z: Double,
+        length: Float,
         width: Float,
         height: Float,
     ){
-        drawSquareTwo(x, y + 0.01, z, width, width, Color(213, 45, 0), 4f, false)
-        drawSquareTwo(x, y + height * 0.165, z, width, width, Color(239, 118, 39), 4f, false)
-        drawSquareTwo(x, y + height * 0.33, z, width, width, Color(255, 154, 86), 4f, false)
-        drawSquareTwo(x, y + height * 0.495, z, width, width, Color(255, 255, 255), 4f, false)
-        drawSquareTwo(x, y + height * 0.66, z, width, width, Color(209, 98, 164), 4f, false)
-        drawSquareTwo(x, y + height * 0.825, z, width, width, Color(181, 86, 144), 4f, false)
-        drawSquareTwo(x, y + height, z, width, width, Color(163, 2, 98), 4f, false)
+        drawSquareTwo(x, y + 0.01, z, length, width, Color(213, 45, 0), 4f, false)
+        drawSquareTwo(x, y + height * 0.165, z, length, width, Color(239, 118, 39), 4f, false)
+        drawSquareTwo(x, y + height * 0.33, z, length, width, Color(255, 154, 86), 4f, false)
+        drawSquareTwo(x, y + height * 0.495, z, length, width, Color(255, 255, 255), 4f, false)
+        drawSquareTwo(x, y + height * 0.66, z, length, width, Color(209, 98, 164), 4f, false)
+        drawSquareTwo(x, y + height * 0.825, z, length, width, Color(181, 86, 144), 4f, false)
+        drawSquareTwo(x, y + height, z, length, width, Color(163, 2, 98), 4f, false)
     }
 
 
@@ -684,8 +845,8 @@ object WorldRenderUtils {
         x: Double,
         y: Double,
         z: Double,
-        xWidth: Float,
-        zWidth: Float,
+        length: Float,
+        width: Float,
         color: Color,
         thickness: Float = 3f,
         phase: Boolean = true,
@@ -707,17 +868,17 @@ object WorldRenderUtils {
 
         worldRenderer.begin(GL11.GL_LINE_STRIP, DefaultVertexFormats.POSITION)
 
-        GlStateManager.color(color.red.toFloat() / 255f, color.green.toFloat() / 255f,
-            color.blue.toFloat() / 255f, 1f)
+        GlStateManager.color(color.red / 255f, color.green / 255f,
+            color.blue / 255f, color.alpha / 255f)
 
-        val halfXWidth = xWidth / 2
-        val halfZWidth = zWidth / 2
+        val halfLength = length / 2
+        val halfWidth = width / 2
 
-        worldRenderer.pos(x + halfXWidth, y, z + halfZWidth).endVertex()
-        worldRenderer.pos(x + halfXWidth, y, z - halfZWidth).endVertex()
-        worldRenderer.pos(x - halfXWidth, y, z - halfZWidth).endVertex()
-        worldRenderer.pos(x - halfXWidth, y, z + halfZWidth).endVertex()
-        worldRenderer.pos(x + halfXWidth, y, z + halfZWidth).endVertex()
+        worldRenderer.pos(x + halfWidth, y, z + halfLength).endVertex()
+        worldRenderer.pos(x + halfWidth, y, z - halfLength).endVertex()
+        worldRenderer.pos(x - halfWidth, y, z - halfLength).endVertex()
+        worldRenderer.pos(x - halfWidth, y, z + halfLength).endVertex()
+        worldRenderer.pos(x + halfWidth, y, z + halfLength).endVertex()
 
         tessellator.draw()
 
@@ -744,7 +905,7 @@ object WorldRenderUtils {
         GlStateManager.disableLighting()
         GlStateManager.tryBlendFuncSeparate(770, 771, 1, 0)
 
-        translate(-renderManager.viewerPosX, -renderManager.viewerPosY, -renderManager.viewerPosZ)
+        GlStateManager.translate(-renderManager.viewerPosX, -renderManager.viewerPosY, -renderManager.viewerPosZ)
 
         GlStateManager.translate(vec3.xCoord, vec3.yCoord, vec3.zCoord)
         GlStateManager.rotate(-renderManager.playerViewY, 0.0f, 1.0f, 0.0f)
@@ -780,7 +941,7 @@ object WorldRenderUtils {
         GlStateManager.disableLighting()
         GlStateManager.disableTexture2D()
         GlStateManager.tryBlendFuncSeparate(770, 771, 1, 0)
-        translate(-renderManager.viewerPosX, -renderManager.viewerPosY, -renderManager.viewerPosZ)
+        GlStateManager.translate(-renderManager.viewerPosX, -renderManager.viewerPosY, -renderManager.viewerPosZ)
 
         if (depth) GlStateManager.enableDepth() else GlStateManager.disableDepth()
         GlStateManager.depthMask(depth)
@@ -808,4 +969,60 @@ object WorldRenderUtils {
         GlStateManager.popMatrix()
     }
 
+    fun renderPlayer(partialTicks: Float = 0f) {
+        val renderPlayer = RenderPlayer(renderManager, mc.thePlayer.skinType == "slim")
+        val x = mc.thePlayer.lastTickPosX + (posX - mc.thePlayer.lastTickPosX) * partialTicks - renderManager.viewerPosX
+        val y = mc.thePlayer.lastTickPosY + (posY - mc.thePlayer.lastTickPosY) * partialTicks - renderManager.viewerPosY
+        val z = mc.thePlayer.lastTickPosZ + (posZ - mc.thePlayer.lastTickPosZ) * partialTicks - renderManager.viewerPosZ
+
+        GlStateManager.pushMatrix()
+        GlStateManager.translate(x + 2, y, z)
+        GlStateManager.disableBlend()
+        GlStateManager.enableAlpha()
+
+        renderPlayer.doRender(mc.thePlayer, x + 2, y, z, mc.thePlayer.rotationYaw, partialTicks)
+
+        GlStateManager.enableBlend()
+        GlStateManager.disableAlpha()
+        GlStateManager.popMatrix()
+    }
+
+    private var displayTitle = ""
+    private var titleTicks = 0
+    private var titleColor = Color.PINK
+
+    fun displayTitle(title: String, ticks: Int, color: Color = PINK) {
+        displayTitle = title
+        titleTicks = ticks
+        titleColor = color
+    }
+
+    fun clearTitle() {
+        displayTitle = ""
+        titleTicks = 0
+    }
+
+    @SubscribeEvent
+    fun onOverlay(event: RenderGameOverlayEvent.Pre) {
+        if (event.type != RenderGameOverlayEvent.ElementType.ALL || titleTicks <= 0) return
+        mc.entityRenderer.setupOverlayRendering()
+        renderText(
+            displayTitle,
+            sr.scaledWidth_double / 2 - displayTitle.getWidth() / 2 + 1,
+            sr.scaledHeight_double / 2 + fontHeight, color = titleColor.toInt,
+        )
+    }
+
+    @SubscribeEvent
+    fun onTick(event: TickEvent.ClientTickEvent) {
+        if (event.phase != TickEvent.Phase.START) return
+        titleTicks--
+    }
+
+//    val displayCommands = Commodore("display") {
+//        literal("set").runs {
+//            string: GreedyString ->
+//            displayTitle(string.toString(), 80)
+//        }
+//    }
 }

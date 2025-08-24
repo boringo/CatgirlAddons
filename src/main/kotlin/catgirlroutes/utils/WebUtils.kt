@@ -5,6 +5,7 @@ import catgirlroutes.config.DataManager
 import com.google.gson.JsonObject
 import com.google.gson.JsonParser
 import kotlinx.coroutines.*
+import java.awt.image.BufferedImage
 import java.io.*
 import java.net.HttpURLConnection
 import java.net.URL
@@ -12,6 +13,7 @@ import java.nio.charset.StandardCharsets
 import java.nio.file.Files
 import java.util.zip.ZipEntry
 import java.util.zip.ZipInputStream
+import javax.imageio.ImageIO
 
 suspend fun hasBonusPaulScore(): Boolean = withTimeoutOrNull(5000) {
     val response: String = URL("https://api.hypixel.net/resources/skyblock/election").readText()
@@ -71,39 +73,46 @@ suspend fun getDataFromServer(url: String = "https://arasfjoiadjf.p-e.kr/cga/use
     } ?: ""
 }
 
-suspend fun downloadImageFromServer(url: String, outputFile: File): Boolean {
+suspend fun downloadImage(url: String): BufferedImage? {
     return withTimeoutOrNull(10000) {
         try {
             val connection = withContext(Dispatchers.IO) {
-                URL(url).openConnection()
-            } as HttpURLConnection
-            connection.requestMethod = "GET"
-            connection.instanceFollowRedirects = true
-            connection.setRequestProperty("User-Agent", "Mozilla/5.0")
-            connection.setRequestProperty("Accept", "image/*")
-
-            val responseCode = connection.responseCode
-
-            if (responseCode != 200) return@withTimeoutOrNull false
-
-            val contentType = connection.contentType
-            if (contentType.equals("text/html")) return@withTimeoutOrNull false
-
-            withContext(Dispatchers.IO) {
-                connection.inputStream.use { input ->
-                    FileOutputStream(outputFile).use { output ->
-                        input.copyTo(output)
-                    }
-                }
+                URL(url).openConnection() as HttpURLConnection
+            }.apply {
+                requestMethod = "GET"
+                instanceFollowRedirects = true
+                setRequestProperty("User-Agent", "Mozilla/5.0")
+                setRequestProperty("Accept", "image/*")
             }
 
-            connection.disconnect()
+            if (connection.responseCode != 200) return@withTimeoutOrNull null
+            if (connection.contentType.equals("text/html")) return@withTimeoutOrNull null
+
+            withContext(Dispatchers.IO) {
+                ImageIO.read(connection.inputStream)
+            }?.also { connection.disconnect() }
+        } catch (e: Exception) {
+            e.printStackTrace()
+            null
+        }
+    }
+}
+
+suspend fun saveImageToFile(image: BufferedImage, outputFile: File): Boolean {
+    return withContext(Dispatchers.IO) {
+        try {
+            ImageIO.write(image, outputFile.extension, outputFile)
             true
         } catch (e: Exception) {
             e.printStackTrace()
             false
         }
-    } ?: false
+    }
+}
+
+suspend fun downloadAndSaveImage(url: String, outputFile: File): Boolean {
+    val image = downloadImage(url) ?: return false
+    return saveImageToFile(image, outputFile)
 }
 
 

@@ -22,39 +22,10 @@ val mixinGroup = "$baseGroup.mixin"
 val modID: String by project
 val transformerFile = file("src/main/resources/accesstransformer.cfg")
 
-val requiredOdin = project.findProperty("requiredOdin") as String
-val requiredOdinVersion = requiredOdin.substringAfterLast("-").substringBefore(".jar")
-
 blossom {
     replaceToken("@VER@", version)
-    replaceToken("@REQUIREDODINVERSION@", requiredOdinVersion)
     replaceToken("@MODVERSION@", version)
 }
-
-
-tasks.register("downloadOdin") {
-    val downloadUrl = "https://github.com/odtheking/Odin/releases/download/${requiredOdinVersion}/${requiredOdin}"
-    val targetFile = file("build/resources/Odin")
-
-    doLast {
-        targetFile.mkdirs()
-
-        URL(downloadUrl).openStream().use { input ->
-            FileOutputStream(File(targetFile, requiredOdin)).use { output ->
-                input.copyTo(output)
-            }
-        }
-    }
-}
-
-tasks.named("compileJava") {
-    dependsOn("downloadOdin")
-}
-
-tasks.named("compileKotlin") {
-    dependsOn("downloadOdin")
-}
-
 
 // Toolchains:
 java {
@@ -117,19 +88,17 @@ repositories {
 
 val shadowImpl: Configuration by configurations.creating {
     configurations.implementation.get().extendsFrom(this)
-    dependencies.add(project.dependencies.create("com.github.Stivais:Commodore:3f4a14b1cf"))
+    dependencies.add(project.dependencies.create("com.github.Stivais:Commodore:bea320fe0a"))
+    dependencies.add(project.dependencies.create("com.mojang:brigadier:1.2.9"))
 }
 
 dependencies {
     minecraft("com.mojang:minecraft:1.8.9")
     mappings("de.oceanlabs.mcp:mcp_stable:22-1.8.9")
     forge("net.minecraftforge:forge:1.8.9-11.15.1.2318-1.8.9")
-    implementation(files("build/resources/Odin/${requiredOdin}"))
 
     implementation("org.jetbrains.kotlinx:kotlinx-coroutines-core:1.7.3")
     implementation("org.jetbrains.kotlinx:kotlinx-serialization-json:1.6.0")
-
-//    implementation("com.github.Stivais:Commodore:3f4a14b1cf")
 
     shadowImpl(kotlin("stdlib-jdk8"))
 
@@ -143,6 +112,7 @@ dependencies {
     runtimeOnly("me.djtheredstoner:DevAuth-forge-legacy:1.2.1")
     implementation(kotlin("stdlib-jdk8"))
 
+    implementation("org.jetbrains.kotlin:kotlin-reflect")
 }
 
 // Tasks:
@@ -203,6 +173,7 @@ tasks.shadowJar {
     // If you want to include other dependencies and shadow them, you can relocate them in here
     fun relocate(name: String) = relocate(name, "$baseGroup.deps.$name")
     relocate("com.github.stivais.commodore")
+    relocate("com.mojang.brigadier")
 }
 
 tasks.assemble.get().dependsOn(tasks.remapJar)

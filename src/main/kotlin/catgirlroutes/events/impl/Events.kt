@@ -25,3 +25,6 @@ class PacketSentEventReturn(val packet: Packet<*>) : Event()
 class PacketReceiveEvent(val packet: Packet<*>) : Event()
 
 class PacketReceiveEventReturn(val packet: Packet<*>) : Event()
+
+//@Cancelable
+class RawPacketReceiveEvent(val packet: Packet<*>) : Event()

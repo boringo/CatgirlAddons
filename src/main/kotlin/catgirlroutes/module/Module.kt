@@ -1,10 +1,13 @@
 package catgirlroutes.module
 
 import catgirlroutes.CatgirlRoutes
+import catgirlroutes.CatgirlRoutes.Companion.clickGUI
+import catgirlroutes.CatgirlRoutes.Companion.clickGUINew
 import catgirlroutes.module.impl.render.ClickGui
 import catgirlroutes.module.settings.AlwaysActive
 import catgirlroutes.module.settings.RegisterHudElement
 import catgirlroutes.module.settings.Setting
+import catgirlroutes.module.settings.impl.HudSetting
 import catgirlroutes.module.settings.impl.Keybinding
 import catgirlroutes.ui.hud.HudElement
 import catgirlroutes.utils.ChatUtils
@@ -166,10 +169,10 @@ abstract class Module(
      * Loads self registering elements of the module such as hud elements.
      */
     fun loadModule() {
-        this::class.nestedClasses.filter { it.hasAnnotation<RegisterHudElement>() }
-            .mapNotNull { it.objectInstance }.filterIsInstance<HudElement>().forEach {
-                hudElements.add(it)
-            }
+//        this::class.nestedClasses.filter { it.hasAnnotation<RegisterHudElement>() }
+//            .mapNotNull { it.objectInstance }.filterIsInstance<HudElement>().forEach {
+//                hudElements.add(it)
+//            }
     }
 
     /**
@@ -240,7 +243,7 @@ abstract class Module(
      */
     open fun onKeyBind() {
         this.toggle()
-        if (ClickGui.notifications.value) Notifications.send("${if (enabled) "Enabled" else "Disabled"} $name", "", icon = if (enabled) "check.png" else "x.png")
+        if (ClickGui.notifications) Notifications.send("${if (enabled) "Enabled" else "Disabled"} $name", "", icon = if (enabled) "check.png" else "x.png")
         else ChatUtils.modMessage("$name ${if (enabled) "§aenabled" else "§cdisabled"}.")
     }
 
@@ -264,6 +267,10 @@ abstract class Module(
      */
     fun <K: Setting<*>> register(setting: K): K{
         addSettings(setting)
+        if (setting is HudSetting) {
+            setting.value.init(this)
+            this.hudElements.add(setting.value)
+        }
         return setting
     }
 
@@ -278,6 +285,14 @@ abstract class Module(
 
     fun getSettingByName(name: String): Setting<*>? {
         return settings.find { it.name.equals(name, ignoreCase = true) }
+    }
+
+    fun openInGui() {
+        ClickGui.onKeyBind()
+        when (ClickGui.clickGui.selected) {
+            "Cga" -> clickGUINew.openModule(this)
+            "Flopper" -> clickGUI.openModule(this)
+        }
     }
 
     enum class TagType {

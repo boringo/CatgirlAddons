@@ -6,32 +6,27 @@ import catgirlroutes.ui.clickgui.util.FontUtil.capitalizeOnlyFirst
 import catgirlroutes.ui.clickguinew.elements.Element
 import catgirlroutes.ui.clickguinew.elements.ElementType
 import catgirlroutes.ui.clickguinew.elements.ModuleButton
-import catgirlroutes.ui.misc.elements.impl.MiscElementButton
-import java.awt.Color
+import catgirlroutes.ui.misc.elements.impl.button
+import catgirlroutes.ui.misc.elements.util.update
 
 class ElementAction(parent: ModuleButton, setting: ActionSetting) :
     Element<ActionSetting>(parent, setting, ElementType.ACTION) {
 
-    private val actionButton = MiscElementButton(
-        displayName.capitalizeOnlyFirst(),
-        width = width,
-        height = height,
-        thickness = 1.0,
-        radius = 3.0
-    ) {
-        this.setting.doAction()
+    private val actionButton = button {
+        text = displayName.capitalizeOnlyFirst()
+        size(this@ElementAction.width, this@ElementAction.height)
+        onClick { setting.doAction() }
     }
 
-    override fun renderElement(mouseX: Int, mouseY: Int, partialTicks: Float): Double {
-        this.actionButton.apply {
-            outlineColour = Color(ColorUtil.outlineColor) // todo do something about this cuz it doesn't seem like meta
+    override fun renderElement(): Double {
+        this.actionButton.update { // FIXME
+            outlineColour = ColorUtil.outlineColor
             outlineHoverColour = ColorUtil.clickGUIColor
-            render(mouseX - xAbsolute.toInt(), mouseY - yAbsolute.toInt())
-        }
-        return super.renderElement(mouseX, mouseY, partialTicks)
+        }.draw(mouseXRel, mouseYRel)
+        return super.renderElement()
     }
 
-    override fun mouseClicked(mouseX: Int, mouseY: Int, mouseButton: Int): Boolean {
-        return this.actionButton.mouseClicked(mouseX - xAbsolute.toInt(), mouseY - yAbsolute.toInt(), mouseButton)
+    override fun mouseClicked(mouseButton: Int): Boolean {
+        return this.actionButton.onMouseClick(mouseXRel, mouseYRel, mouseButton)
     }
 }

@@ -25,21 +25,21 @@ object CgaUser : Module(
     "Cga User",
     Category.RENDER,
 ) {
-    private val scaleX = NumberSetting("Scale X", 1.0, -3.0, 3.0, 0.1)
-    private val scaleY = NumberSetting("Scale Y", 1.0, -3.0, 3.0, 0.1)
-    private val scaleZ = NumberSetting("Scale Z", 1.0, -3.0, 3.0, 0.1)
+    private var scaleX by NumberSetting("Scale X", 1.0, -3.0, 3.0, 0.1)
+    private var scaleY by NumberSetting("Scale Y", 1.0, -3.0, 3.0, 0.1)
+    private var scaleZ by NumberSetting("Scale Z", 1.0, -3.0, 3.0, 0.1)
 
-    private val cape: StringSetting = StringSetting("Cape", "XkdcuPO")
+    private var cape by StringSetting("Cape", "XkdcuPO")
 
-    private val reset: ActionSetting = ActionSetting("Reset") {
+    private val reset by ActionSetting("Reset") {
         modMessage("Resetting User settings")
-        scaleX.value = 1.0; scaleY.value = 1.0; scaleZ.value = 1.0
-        cape.text = "XkdcuPO"
+        scaleX = 1.0; scaleY = 1.0; scaleZ = 1.0
+        cape = "XkdcuPO"
     }
 
     val updateUser = ActionSetting("Update User Data") {
         scope.launch {
-            var c = cape.value.takeIf { it.isNotEmpty() } ?: "XkdcuPO"
+            var c = cape.takeIf { it.isNotEmpty() } ?: "XkdcuPO"
             // https://regex101.com/r/dZ971v/2
             c = Regex("(https://imgur\\.com/)?([a-zA-Z0-9]+)(?:\\.png)?").find(c)?.groups?.get(2)?.value ?: c // fuck regex it dosen't work
             val jsonString = """
@@ -47,9 +47,9 @@ object CgaUser : Module(
                     "name": "${mc.thePlayer.name}",
                     "uuid": "${mc.session.playerID}",
                     "dimensions": {
-                        "x": ${scaleX.value},
-                        "y": ${scaleY.value},
-                        "z": ${scaleZ.value}
+                        "x": ${scaleX},
+                        "y": ${scaleY},
+                        "z": ${scaleZ}
                     },
                     "cape": "$c"
                 }
@@ -57,15 +57,6 @@ object CgaUser : Module(
             modMessage(sendDataToServer(jsonString))
             CgaUsers.updateUsers()
         }
-    }
-
-
-    init {
-        addSettings(
-            scaleX, scaleY, scaleZ,
-            cape,
-            reset, updateUser
-        )
     }
 
     override fun onEnable() {

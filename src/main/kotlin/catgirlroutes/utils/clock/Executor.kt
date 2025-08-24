@@ -1,6 +1,6 @@
 package catgirlroutes.utils.clock
 
-import catgirlroutes.utils.Utils
+import catgirlroutes.utils.profile
 import net.minecraftforge.client.event.RenderWorldLastEvent
 import net.minecraftforge.fml.common.eventhandler.SubscribeEvent
 
@@ -25,7 +25,7 @@ open class Executor(
 
     open fun run(): Boolean {
         if (shouldFinish) return true
-        Utils.profile(profileName) {
+        profile(profileName) {
             if (clock.hasTimePassed(delay(), true)) {
                 runCatching {
                     func()  // Directly invoke the function
